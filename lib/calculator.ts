@@ -20,6 +20,14 @@ export interface YutimeSettings {
   highProbability: number;
 }
 
+export interface SpecBenchmark {
+  sourceLabel: string;
+  sourceUrl: string;
+  avgTotalPayoutBalls: number;
+  borderSpins4Yen: number;
+  conditionNote: string;
+}
+
 export interface SpecInput {
   name: string;
   machineType: MachineType;
@@ -34,6 +42,7 @@ export interface SpecInput {
   initialPayout: number;
   payoutTiers: PayoutTier[];
   yutime: YutimeSettings;
+  benchmark?: SpecBenchmark;
 }
 
 export interface RegulationPreset {
@@ -91,6 +100,9 @@ export interface SpecResult {
 export interface BorderResult {
   avgTotalPayoutBalls: number;
   borderSpins: number;
+  sourceLabel?: string;
+  sourceUrl?: string;
+  conditionNote?: string;
 }
 
 export const REGULATIONS: Record<RegulationType, RegulationPreset> = {
@@ -280,6 +292,7 @@ export function calculateSpec(input: SpecInput): SpecResult {
     ? rushEntryRate * avgRushPayout
     : 0;
   const avgTotalPayout = input.initialPayout + lowerRushExpected + upperRushExpected + ltExpected + classicRushExpected;
+  const displayedAvgTotalPayout = input.benchmark?.avgTotalPayoutBalls ?? avgTotalPayout;
   const ltRatio = ltExpected / Math.max(input.initialPayout + lowerRushExpected + ltExpected, 1);
   const suggestions: string[] = [];
 
@@ -349,7 +362,7 @@ export function calculateSpec(input: SpecInput): SpecResult {
     avgUpperRushPayout: Math.round(avgUpperRushPayout),
     avgLtPayout: Math.round(avgLtPayout),
     initialPayout: input.initialPayout,
-    avgTotalPayout: Math.round(avgTotalPayout),
+    avgTotalPayout: Math.round(displayedAvgTotalPayout),
     payoutTiers: input.payoutTiers,
     entryChartTiers,
     check: {
@@ -391,11 +404,22 @@ export function maximizeSpec(input: SpecInput): SpecInput {
 }
 
 export function calculateBorder(input: SpecInput, spec: SpecResult): BorderResult {
+  if (input.benchmark) {
+    return {
+      avgTotalPayoutBalls: input.benchmark.avgTotalPayoutBalls,
+      borderSpins: input.benchmark.borderSpins4Yen,
+      sourceLabel: input.benchmark.sourceLabel,
+      sourceUrl: input.benchmark.sourceUrl,
+      conditionNote: input.benchmark.conditionNote,
+    };
+  }
+
   const avgTotalPayoutBalls = spec.avgTotalPayout;
   const borderSpins = 250 / Math.max(avgTotalPayoutBalls / input.hitProbability, 0.01);
   return {
     avgTotalPayoutBalls: Math.round(avgTotalPayoutBalls),
     borderSpins: round1(borderSpins),
+    conditionNote: "入力条件から算出した概算値です。削り、玉こぼれ、電サポ中の増減は個別には反映していません。",
   };
 }
 
@@ -418,7 +442,7 @@ export function calcExpectedValue(params: {
   const expectedPayoutBalls = actualSpins * (avgTotalPayoutBalls / hitProbability);
   const investedBalls = investmentYen / ballPriceYen;
   const expectedDiffBalls = Math.round(expectedPayoutBalls - investedBalls);
-  const expectedValueYen = Math.round(expectedDiffBalls * exchangeYenPerBall);
+  const expectedValueYen = Math.round((expectedPayoutBalls * exchangeYenPerBall) - investmentYen);
   const spinDiff = round1(userSpins - borderSpins);
   const judgment: "plus" | "even" | "minus" =
     Math.abs(spinDiff) <= 0.5 ? "even" : spinDiff > 0 ? "plus" : "minus";

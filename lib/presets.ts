@@ -36,6 +36,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "eva15-1500", label: "10R", payout: 1500, rate: 100, bonusCount: 1 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4021",
+        avgTotalPayoutBalls: 4498,
+        borderSpins4Yen: 17.8,
+        conditionNote: "電サポ中の出玉増減-10%、通常時2000回転（10時間）から算出。",
+      },
     },
   },
   {
@@ -59,6 +66,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "ghoul-6000", label: "10R x4", payout: 6000, rate: 6, bonusCount: 4 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4782",
+        avgTotalPayoutBalls: 2998,
+        borderSpins4Yen: 16.7,
+        conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
+      },
     },
   },
   {
@@ -81,6 +95,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "eva17-2400", label: "8R x2", payout: 2400, rate: 100, bonusCount: 2 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4894",
+        avgTotalPayoutBalls: 5987,
+        borderSpins4Yen: 16.7,
+        conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
+      },
     },
   },
   {
@@ -104,6 +125,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "rezero-3000", label: "10R x2", payout: 3000, rate: 25, bonusCount: 2 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4457",
+        avgTotalPayoutBalls: 5282,
+        borderSpins4Yen: 16.6,
+        conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
+      },
     },
   },
   {
@@ -130,6 +158,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "karakuri-7500", label: "10R x5", payout: 7500, rate: 1, bonusCount: 5 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4649",
+        avgTotalPayoutBalls: 5552,
+        borderSpins4Yen: 18.1,
+        conditionNote: "電サポ中の出玉増減なし、通常時2000回転（10時間）から算出。",
+      },
     },
   },
   {
@@ -153,6 +188,13 @@ export const MACHINE_PRESETS: MachinePreset[] = [
         { id: "gensan-720", label: "9R", payout: 720, rate: 25, bonusCount: 1 },
       ],
       yutime: yutimeOff,
+      benchmark: {
+        sourceLabel: "DMMぱちタウン",
+        sourceUrl: "https://p-town.dmm.com/machines/4532",
+        avgTotalPayoutBalls: 1823,
+        borderSpins4Yen: 17.8,
+        conditionNote: "電サポ中の出玉増減なし、通常時2000回転（10時間）から算出。",
+      },
     },
   },
 ];

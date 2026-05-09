@@ -12,7 +12,6 @@ export const NAV_LINKS = [
   { href: "/guide", label: "使い方" },
   { href: "/glossary", label: "用語解説" },
   { href: "/machines", label: "実機スペック" },
-  { href: "/roadmap", label: "収益化ロードマップ" },
 ];
 
 export const FOOTER_LINKS = [

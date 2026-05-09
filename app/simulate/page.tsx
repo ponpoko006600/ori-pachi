@@ -44,6 +44,7 @@ function withDefaults(value: Partial<SpecInput>): SpecInput {
       id: tier.id ?? `tier-${index}`,
     })),
     yutime: { ...DEFAULT_YUTIME, ...(value.yutime ?? {}) },
+    benchmark: value.benchmark,
   };
 }
 
@@ -157,7 +158,7 @@ function SimulatePage() {
           </div>
         </section>
 
-        {border && <BorderAnalyzer hitProbability={input.hitProbability} border={border} />}
+        {border && <BorderAnalyzer key={`${input.name}-${border.borderSpins}`} hitProbability={input.hitProbability} border={border} />}
 
         {!spec.check.ok && (
           <div className="warning-banner">

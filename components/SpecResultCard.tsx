@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SpecInput, SpecResult } from "@/lib/calculator";
+import { calculateBorder, SpecInput, SpecResult } from "@/lib/calculator";
 import PayoutPieChart from "@/components/PayoutPieChart";
 
 interface Props {
@@ -21,6 +21,7 @@ const RUSH_MODE_LABEL = {
 
 export default function SpecResultCard({ input, result }: Props) {
   const router = useRouter();
+  const border = calculateBorder(input, result);
 
   function handleSimulate() {
     router.push(`/simulate?spec=${encodeSpec(input)}`);
@@ -88,7 +89,13 @@ export default function SpecResultCard({ input, result }: Props) {
               </>
             )}
             <StatItem label="初当たり期待出玉" value={`約${result.avgTotalPayout.toLocaleString()}発`} highlight color="cyan" />
+            <StatItem label="ボーダー（4円等価）" value={`${border.borderSpins}回/k`} highlight color="gold" />
           </div>
+          {input.benchmark && (
+            <p className="benchmark-note">
+              実機プリセットは{input.benchmark.sourceLabel}掲載の「初当り1回あたりの期待出玉」とボーダーを基準に表示しています。
+            </p>
+          )}
         </section>
 
         <section>

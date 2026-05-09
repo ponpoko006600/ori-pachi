@@ -9,8 +9,8 @@ interface Props {
 }
 
 export default function BorderAnalyzer({ hitProbability, border }: Props) {
-  const [userSpins, setUserSpins] = useState("");
-  const [investment, setInvestment] = useState("");
+  const [userSpins, setUserSpins] = useState(String(border.borderSpins));
+  const [investment, setInvestment] = useState("10000");
   const [exchange, setExchange] = useState("4");
 
   const userSpinsNum = parseFloat(userSpins);
@@ -65,8 +65,21 @@ export default function BorderAnalyzer({ hitProbability, border }: Props) {
         </div>
 
         <p className="text-xs text-white/30">
-          ボーダー以上回れば理論上は期待値プラス（4円等価交換基準）
+          {border.sourceLabel ? `${border.sourceLabel}掲載値を基準に表示` : "ボーダー以上回れば理論上は期待値プラス（4円等価交換基準）"}
         </p>
+        {border.conditionNote && (
+          <p className="text-xs text-white/30">
+            {border.conditionNote}
+            {border.sourceUrl && (
+              <>
+                {" "}
+                <a href={border.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-link">
+                  参照元
+                </a>
+              </>
+            )}
+          </p>
+        )}
 
         {/* ユーザー入力 */}
         <div className="space-y-3">
@@ -138,6 +151,12 @@ export default function BorderAnalyzer({ hitProbability, border }: Props) {
               <span className="text-sm text-white/60">期待収支</span>
               <span className="font-bold" style={{ color: judgmentStyle.color }}>
                 {ev.expectedValueYen >= 0 ? "+" : ""}{ev.expectedValueYen.toLocaleString()} 円
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white/60">期待差玉</span>
+              <span className="font-bold" style={{ color: judgmentStyle.color }}>
+                {ev.expectedDiffBalls >= 0 ? "+" : ""}{ev.expectedDiffBalls.toLocaleString()} 玉
               </span>
             </div>
             <div
