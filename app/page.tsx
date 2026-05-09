@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   calculateSpec,
+  calcStContinuationRate,
   DEFAULT_PAYOUT_TIERS,
+  DEFAULT_TIME_SHORT,
   DEFAULT_YUTIME,
   getMaxPayoutForRegulation,
   HIT_PROBS,
@@ -32,6 +34,12 @@ export default function Home() {
     upperRushEntryRate: 25,
     upperRushContinuationRate: 81,
     ltContinuationRate: 85,
+    continuationCalcMode: "rate",
+    rightHitProbability: 79,
+    rushStSpins: 130,
+    upperRushStSpins: 130,
+    ltStSpins: 163,
+    nonRushTimeShort: DEFAULT_TIME_SHORT,
     initialPayout: 450,
     payoutTiers: DEFAULT_PAYOUT_TIERS,
     yutime: DEFAULT_YUTIME,
@@ -45,8 +53,8 @@ export default function Home() {
   const hitProbIndex = HIT_PROBS.indexOf(input.hitProbability);
   const causes = result.check.causes;
 
-  function patchInput(patch: Partial<SpecInput>) {
-    setInput((current) => ({ ...current, ...patch }));
+  function patchInput(patch: Partial<SpecInput>, keepBenchmark = false) {
+    setInput((current) => ({ ...current, ...patch, benchmark: keepBenchmark ? current.benchmark : undefined }));
   }
 
   function setRegulationType(regulationType: RegulationType) {
@@ -59,6 +67,7 @@ export default function Home() {
       ltContinuationRate: nextRegulation.supportsLt ? current.ltContinuationRate : Math.min(current.rushContinuationRate, nextRegulation.maxContinuationRate),
       upperRushContinuationRate: Math.min(current.upperRushContinuationRate, nextRegulation.maxContinuationRate),
       initialPayout: Math.min(current.initialPayout, nextRegulation.maxInitialPayout),
+      benchmark: undefined,
       payoutTiers: current.payoutTiers.map((tier) => ({
         ...tier,
         payout: Math.min(tier.payout, nextRegulation.maxPayoutBundle),
@@ -70,6 +79,7 @@ export default function Home() {
   function updateTier(id: string, patch: Partial<PayoutTier>) {
     setInput((current) => ({
       ...current,
+      benchmark: undefined,
       payoutTiers: current.payoutTiers.map((tier) => tier.id === id ? { ...tier, ...patch } : tier),
     }));
   }
@@ -78,6 +88,7 @@ export default function Home() {
     if (input.payoutTiers.length >= 6) return;
     setInput((current) => ({
       ...current,
+      benchmark: undefined,
       payoutTiers: [
         ...current.payoutTiers,
         {
@@ -95,6 +106,7 @@ export default function Home() {
     if (input.payoutTiers.length >= 6) return;
     setInput((current) => ({
       ...current,
+      benchmark: undefined,
       payoutTiers: [
         ...current.payoutTiers,
         {
@@ -112,6 +124,7 @@ export default function Home() {
     if (input.payoutTiers.length <= 1) return;
     setInput((current) => ({
       ...current,
+      benchmark: undefined,
       payoutTiers: current.payoutTiers.filter((tier) => tier.id !== id),
     }));
   }
@@ -139,7 +152,7 @@ export default function Home() {
   }
 
   function handleMaximize() {
-    setInput((current) => maximizeSpec(current));
+    setInput((current) => ({ ...maximizeSpec(current), benchmark: undefined }));
   }
 
   function applyPreset(presetInput: SpecInput) {
@@ -240,6 +253,29 @@ export default function Home() {
               onChange={(rushEntryRate) => patchInput({ rushEntryRate })}
             />
 
+            <div className="toggle-row">
+              <span>非突入時短</span>
+              <button
+                onClick={() => patchInput({ nonRushTimeShort: { ...input.nonRushTimeShort, enabled: !input.nonRushTimeShort.enabled } })}
+                className={input.nonRushTimeShort.enabled ? "toggle active" : "toggle"}
+              >
+                {input.nonRushTimeShort.enabled ? "あり" : "なし"}
+              </button>
+            </div>
+            {input.nonRushTimeShort.enabled && (
+              <SliderControl
+                label="非突入時の時短回数"
+                valueLabel={`${input.nonRushTimeShort.spins}回転`}
+                min={1}
+                max={300}
+                step={1}
+                value={input.nonRushTimeShort.spins}
+                ok
+                onChange={(spins) => patchInput({ nonRushTimeShort: { ...input.nonRushTimeShort, spins } })}
+                hint={`引き戻し約${calcStContinuationRate(input.hitProbability, input.nonRushTimeShort.spins)}%`}
+              />
+            )}
+
             <div className="field-stack">
               <label className="field-label">Rush構造</label>
               <div className="segmented rush-mode">
@@ -255,7 +291,51 @@ export default function Home() {
               </div>
             </div>
 
-            {input.rushMode !== "directLt" && (
+            <div className="field-stack">
+              <label className="field-label">継続率の作り方</label>
+              <div className="segmented">
+                <button
+                  onClick={() => patchInput({ continuationCalcMode: "rate" })}
+                  className={input.continuationCalcMode === "rate" ? "active" : ""}
+                >
+                  継続率で選ぶ
+                </button>
+                <button
+                  onClick={() => patchInput({ continuationCalcMode: "st" })}
+                  className={input.continuationCalcMode === "st" ? "active" : ""}
+                >
+                  確率×回数
+                </button>
+              </div>
+            </div>
+
+            {input.continuationCalcMode === "st" && (
+              <SliderControl
+                label="右打ち中確率"
+                valueLabel={`1/${input.rightHitProbability}`}
+                min={1}
+                max={399}
+                step={1}
+                value={input.rightHitProbability}
+                ok
+                onChange={(rightHitProbability) => patchInput({ rightHitProbability })}
+              />
+            )}
+
+            {input.continuationCalcMode === "st" && input.rushMode !== "directLt" && (
+              <SliderControl
+                label={input.rushMode === "twoStage" ? "下位Rush ST回数" : "Rush ST回数"}
+                valueLabel={`${input.rushStSpins}回 / 約${result.actualRushContinuationRate}%`}
+                min={1}
+                max={250}
+                step={1}
+                value={input.rushStSpins}
+                ok={!causes.includes("rushContinuationRate")}
+                onChange={(rushStSpins) => patchInput({ rushStSpins })}
+              />
+            )}
+
+            {input.continuationCalcMode === "rate" && input.rushMode !== "directLt" && (
               <SliderControl
                 label={input.rushMode === "twoStage" ? "下位Rush継続率" : "Rush継続率"}
                 valueLabel={`${input.rushContinuationRate}%`}
@@ -282,7 +362,20 @@ export default function Home() {
               />
             )}
 
-            {input.rushMode === "twoStage" && !regulation.supportsLt && (
+            {input.continuationCalcMode === "st" && input.rushMode === "twoStage" && (
+              <SliderControl
+                label={regulation.supportsLt ? "上位/LT ST回数" : "上位Rush ST回数"}
+                valueLabel={`${input.upperRushStSpins}回 / 約${result.actualUpperRushContinuationRate}%`}
+                min={1}
+                max={250}
+                step={1}
+                value={input.upperRushStSpins}
+                ok={!causes.includes("upperRushContinuationRate")}
+                onChange={(upperRushStSpins) => patchInput({ upperRushStSpins })}
+              />
+            )}
+
+            {input.continuationCalcMode === "rate" && input.rushMode === "twoStage" && !regulation.supportsLt && (
               <SliderControl
                 label="上位Rush継続率"
                 valueLabel={`${input.upperRushContinuationRate}%`}
@@ -296,7 +389,21 @@ export default function Home() {
               />
             )}
 
-            {regulation.supportsLt && (
+            {input.continuationCalcMode === "st" && regulation.supportsLt && (
+              <SliderControl
+                label="LT ST回数"
+                valueLabel={`${input.ltStSpins}回 / 約${result.actualLtContinuationRate}%`}
+                min={1}
+                max={250}
+                step={1}
+                value={input.ltStSpins}
+                ok={!causes.includes("ltContinuationRate")}
+                onChange={(ltStSpins) => patchInput({ ltStSpins })}
+                hint={`右打ち1/${input.rightHitProbability}から自動計算`}
+              />
+            )}
+
+            {input.continuationCalcMode === "rate" && regulation.supportsLt && (
               <SliderControl
                 label="LT継続率"
                 valueLabel={`${input.ltContinuationRate}%`}
@@ -464,6 +571,7 @@ export default function Home() {
               {input.rushMode === "twoStage" && !regulation.supportsLt && <PreviewStat label="上位RUSH期待" value={`約${result.avgUpperRushPayout.toLocaleString()}発`} />}
               {regulation.supportsLt && <PreviewStat label="LT期待" value={`約${result.avgLtPayout.toLocaleString()}発`} />}
               <PreviewStat label="初当たり期待" value={`約${result.avgTotalPayout.toLocaleString()}発`} />
+              {input.nonRushTimeShort.enabled && <PreviewStat label="実質RUSH突入" value={`約${Math.round(result.effectiveRushEntryRate * 100)}%`} />}
             </div>
             <div className="suggestion-box">
               {result.suggestions.map((suggestion) => (

@@ -15,6 +15,8 @@ const yutimeOff = {
   highProbability: 99,
 };
 
+const noTimeShort = { enabled: false, spins: 100 };
+
 export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "eva15",
@@ -31,6 +33,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 0,
       upperRushContinuationRate: 81,
       ltContinuationRate: 81,
+      continuationCalcMode: "st",
+      rightHitProbability: 99,
+      rushStSpins: 163,
+      upperRushStSpins: 163,
+      ltStSpins: 163,
+      nonRushTimeShort: { enabled: true, spins: 100 },
       initialPayout: 450,
       payoutTiers: [
         { id: "eva15-1500", label: "10R", payout: 1500, rate: 100, bonusCount: 1 },
@@ -60,6 +68,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 100,
       upperRushContinuationRate: 75,
       ltContinuationRate: 75,
+      continuationCalcMode: "st",
+      rightHitProbability: 95,
+      rushStSpins: 130,
+      upperRushStSpins: 130,
+      ltStSpins: 130,
+      nonRushTimeShort: noTimeShort,
       initialPayout: 1500,
       payoutTiers: [
         { id: "ghoul-3000", label: "10R x2", payout: 3000, rate: 94, bonusCount: 2 },
@@ -90,6 +104,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 100,
       upperRushContinuationRate: 80,
       ltContinuationRate: 80,
+      continuationCalcMode: "st",
+      rightHitProbability: 99,
+      rushStSpins: 157,
+      upperRushStSpins: 157,
+      ltStSpins: 157,
+      nonRushTimeShort: { enabled: true, spins: 100 },
       initialPayout: 1500,
       payoutTiers: [
         { id: "eva17-2400", label: "8R x2", payout: 2400, rate: 100, bonusCount: 2 },
@@ -119,6 +139,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 0,
       upperRushContinuationRate: 77,
       ltContinuationRate: 77,
+      continuationCalcMode: "st",
+      rightHitProbability: 99,
+      rushStSpins: 145,
+      upperRushStSpins: 145,
+      ltStSpins: 145,
+      nonRushTimeShort: noTimeShort,
       initialPayout: 1500,
       payoutTiers: [
         { id: "rezero-1500", label: "10R", payout: 1500, rate: 75, bonusCount: 1 },
@@ -149,6 +175,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 100,
       upperRushContinuationRate: 80,
       ltContinuationRate: 80,
+      continuationCalcMode: "rate",
+      rightHitProbability: 78,
+      rushStSpins: 135,
+      upperRushStSpins: 135,
+      ltStSpins: 135,
+      nonRushTimeShort: noTimeShort,
       initialPayout: 300,
       payoutTiers: [
         { id: "karakuri-reset", label: "STリセット", payout: 0, rate: 18, bonusCount: 1 },
@@ -182,6 +214,12 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       upperRushEntryRate: 25,
       upperRushContinuationRate: 96,
       ltContinuationRate: 96,
+      continuationCalcMode: "rate",
+      rightHitProbability: 2,
+      rushStSpins: 3,
+      upperRushStSpins: 6,
+      ltStSpins: 6,
+      nonRushTimeShort: noTimeShort,
       initialPayout: 240,
       payoutTiers: [
         { id: "gensan-240", label: "3R", payout: 240, rate: 75, bonusCount: 1 },

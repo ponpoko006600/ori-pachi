@@ -70,7 +70,9 @@ function drawNormalUntilHit(input: SpecInput): { spins: number; yutimeEntered: b
 }
 
 function playRush(input: SpecInput, spec: SpecResult): { payoutBalls: number; chainCount: number; enteredRush: boolean } {
-  if (Math.random() >= input.rushEntryRate / 100) {
+  const directEntry = Math.random() < input.rushEntryRate / 100;
+  const timeShortEntry = !directEntry && input.nonRushTimeShort?.enabled && Math.random() < spec.timeShortReturnRate;
+  if (!directEntry && !timeShortEntry) {
     return { payoutBalls: 0, chainCount: 0, enteredRush: false };
   }
 
@@ -79,12 +81,12 @@ function playRush(input: SpecInput, spec: SpecResult): { payoutBalls: number; ch
   const isLt = spec.regulation.supportsLt
     && (isDirectLt || isTwoStage || (spec.rushMode === "standard" && Math.random() < spec.ltEntryRateWithinRush));
   const continuation = isLt
-    ? input.ltContinuationRate / 100
+    ? spec.actualLtContinuationRate / 100
     : isTwoStage
-      ? input.upperRushContinuationRate / 100
-      : input.rushContinuationRate / 100;
+      ? spec.actualUpperRushContinuationRate / 100
+      : spec.actualRushContinuationRate / 100;
 
-  let payoutBalls = 0;
+  let payoutBalls = timeShortEntry ? input.initialPayout : 0;
   let chainCount = 0;
   while (Math.random() < continuation) {
     chainCount++;

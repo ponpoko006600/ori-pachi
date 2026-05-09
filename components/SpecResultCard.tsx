@@ -52,19 +52,20 @@ export default function SpecResultCard({ input, result }: Props) {
           <div className="stat-grid">
             <StatItem label="大当たり確率" value={`1/${input.hitProbability}`} highlight />
             <StatItem label="RUSH突入率" value={`${input.rushEntryRate}%`} highlight />
+            {input.nonRushTimeShort.enabled && <StatItem label="実質RUSH突入率" value={`約${Math.round(result.effectiveRushEntryRate * 100)}%`} highlight color="cyan" />}
             <StatItem label="Rush構造" value={RUSH_MODE_LABEL[result.rushMode]} />
             {result.rushMode !== "directLt" && (
-              <StatItem label={result.rushMode === "twoStage" ? "下位RUSH継続率" : "RUSH継続率"} value={`${input.rushContinuationRate}%`} />
+              <StatItem label={result.rushMode === "twoStage" ? "下位RUSH継続率" : "RUSH継続率"} value={`${result.actualRushContinuationRate}%`} />
             )}
             {result.rushMode === "twoStage" && (
               <StatItem label={result.regulation.supportsLt ? "上位/LT突入率" : "上位RUSH突入率"} value={`${input.upperRushEntryRate}%`} />
             )}
             {result.rushMode === "twoStage" && !result.regulation.supportsLt && (
-              <StatItem label="上位RUSH継続率" value={`${input.upperRushContinuationRate}%`} />
+              <StatItem label="上位RUSH継続率" value={`${result.actualUpperRushContinuationRate}%`} />
             )}
             <StatItem
               label={result.regulation.supportsLt ? "LT継続率" : "継続率上限"}
-              value={result.regulation.supportsLt ? `${input.ltContinuationRate}%` : `${result.regulation.maxContinuationRate}%`}
+              value={result.regulation.supportsLt ? `${result.actualLtContinuationRate}%` : `${result.regulation.maxContinuationRate}%`}
               highlight={result.regulation.supportsLt}
             />
             <StatItem label="RUSH中確率" value={`1/${result.rushProbability}`} />
