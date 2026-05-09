@@ -383,6 +383,7 @@ button:disabled {
   display: grid;
   gap: 4px;
   text-align: left;
+  position: relative;
 }
 
 .preset-machine-button strong {
@@ -392,6 +393,51 @@ button:disabled {
 .preset-machine-button span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.preset-machine-button.active {
+  border-color: rgba(0, 212, 255, 0.82);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(255, 209, 72, 0.1));
+  box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.22), 0 12px 28px rgba(0, 212, 255, 0.12);
+}
+
+.preset-machine-button.active::after {
+  content: "選択中";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: #061018;
+  background: var(--gold);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.preset-machine-button.active span {
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.selected-preset-note {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  border-radius: 8px;
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.selected-preset-note strong {
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+.selected-preset-note span {
+  color: rgba(244, 247, 251, 0.78);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .inline-actions,

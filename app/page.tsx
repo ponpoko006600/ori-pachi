@@ -45,6 +45,7 @@ export default function Home() {
     yutime: DEFAULT_YUTIME,
   });
   const [createdInput, setCreatedInput] = useState<SpecInput | null>(null);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
   const result = useMemo(() => calculateSpec(input), [input]);
   const createdResult = useMemo(() => createdInput ? calculateSpec(createdInput) : null, [createdInput]);
@@ -55,6 +56,7 @@ export default function Home() {
 
   function patchInput(patch: Partial<SpecInput>, keepBenchmark = false) {
     setInput((current) => ({ ...current, ...patch, benchmark: keepBenchmark ? current.benchmark : undefined }));
+    if (!keepBenchmark) setSelectedPresetId(null);
   }
 
   function setRegulationType(regulationType: RegulationType) {
@@ -77,6 +79,7 @@ export default function Home() {
   }
 
   function updateTier(id: string, patch: Partial<PayoutTier>) {
+    setSelectedPresetId(null);
     setInput((current) => ({
       ...current,
       benchmark: undefined,
@@ -86,6 +89,7 @@ export default function Home() {
 
   function addTier() {
     if (input.payoutTiers.length >= 6) return;
+    setSelectedPresetId(null);
     setInput((current) => ({
       ...current,
       benchmark: undefined,
@@ -104,6 +108,7 @@ export default function Home() {
 
   function addPresetTier(label: string, payout: number, bonusCount: number) {
     if (input.payoutTiers.length >= 6) return;
+    setSelectedPresetId(null);
     setInput((current) => ({
       ...current,
       benchmark: undefined,
@@ -122,6 +127,7 @@ export default function Home() {
 
   function removeTier(id: string) {
     if (input.payoutTiers.length <= 1) return;
+    setSelectedPresetId(null);
     setInput((current) => ({
       ...current,
       benchmark: undefined,
@@ -152,10 +158,12 @@ export default function Home() {
   }
 
   function handleMaximize() {
+    setSelectedPresetId(null);
     setInput((current) => ({ ...maximizeSpec(current), benchmark: undefined }));
   }
 
-  function applyPreset(presetInput: SpecInput) {
+  function applyPreset(presetId: string, presetInput: SpecInput) {
+    setSelectedPresetId(presetId);
     setInput(structuredClone(presetInput));
     setCreatedInput(null);
   }
@@ -207,12 +215,22 @@ export default function Home() {
             <PanelTitle label="実機プリセット" />
             <div className="preset-machine-grid">
               {MACHINE_PRESETS.map((preset) => (
-                <button key={preset.id} onClick={() => applyPreset(preset.input)} className="preset-machine-button">
+                <button
+                  key={preset.id}
+                  onClick={() => applyPreset(preset.id, preset.input)}
+                  className={selectedPresetId === preset.id ? "preset-machine-button active" : "preset-machine-button"}
+                >
                   <strong>{preset.label}</strong>
-                  <span>このスペックに設定</span>
+                  <span>{selectedPresetId === preset.id ? "選択中" : "このスペックに設定"}</span>
                 </button>
               ))}
             </div>
+            {selectedPresetId && (
+              <div className="selected-preset-note">
+                <strong>選択中の実機スペック</strong>
+                <span>{MACHINE_PRESETS.find((preset) => preset.id === selectedPresetId)?.input.name}</span>
+              </div>
+            )}
 
             <PanelTitle label="基本パラメータ" />
             <div className="field-stack">
