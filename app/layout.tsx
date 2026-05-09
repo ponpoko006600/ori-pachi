@@ -6,6 +6,9 @@ import { SITE } from "@/lib/site";
 export const metadata: Metadata = {
   title: SITE.fullName,
   description: SITE.description,
+  verification: {
+    google: "wzPPtWbt1AHp5asNUUDmx80wLH0u936sgt9ocCn9-2s",
+  },
 };
 
 export default function RootLayout({
