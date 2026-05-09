@@ -1,108 +1,169 @@
-import { SpecInput, SpecResult } from "./calculator";
+import { PayoutTier, SpecInput, SpecResult } from "./calculator";
+
+export interface SimulationPoint {
+  spin: number;
+  balance: number;
+}
 
 export interface SimulationResult {
-  totalHits: number;
+  totalSpins: number;
+  totalInitialHits: number;
+  totalRushEntries: number;
   totalPayout: number;
   avgPayoutPerHit: number;
   maxChain: number;
   maxHamari: number;
+  yutimeEntries: number;
+  yutimeHits: number;
   chainDistribution: Record<number, number>;
-  balanceHistory: number[];
+  balanceHistory: SimulationPoint[];
   finalBalance: number;
   machineRatio: number;
+}
+
+const SPINS_PER_1000YEN = 17;
+const BALL_PRICE = 4;
+
+function drawGeometric(probabilityDenominator: number): number {
+  const hitRate = 1 / Math.max(probabilityDenominator, 1);
+  return Math.ceil(Math.log(1 - Math.random()) / Math.log(1 - hitRate));
+}
+
+function drawPayout(tiers: PayoutTier[]): number {
+  const rand = Math.random() * 100;
+  let cursor = 0;
+  for (const tier of tiers) {
+    cursor += tier.rate;
+    if (rand <= cursor) return tier.payout;
+  }
+  return tiers[tiers.length - 1]?.payout ?? 0;
+}
+
+function drawNormalUntilHit(input: SpecInput): { spins: number; yutimeEntered: boolean; yutimeHit: boolean } {
+  if (!input.yutime.enabled) {
+    return { spins: drawGeometric(input.hitProbability), yutimeEntered: false, yutimeHit: false };
+  }
+
+  let spins = 0;
+  let yutimeEntered = false;
+
+  while (true) {
+    const normalHit = drawGeometric(input.hitProbability);
+    if (normalHit <= input.yutime.triggerSpins) {
+      return { spins: spins + normalHit, yutimeEntered, yutimeHit: false };
+    }
+
+    spins += input.yutime.triggerSpins;
+    yutimeEntered = true;
+
+    const yutimeProbability = input.yutime.probabilityMode === "high"
+      ? input.yutime.highProbability
+      : input.hitProbability;
+    const yutimeHit = drawGeometric(yutimeProbability);
+
+    if (yutimeHit <= input.yutime.supportSpins) {
+      return { spins: spins + yutimeHit, yutimeEntered, yutimeHit: true };
+    }
+
+    spins += input.yutime.supportSpins;
+  }
+}
+
+function playRush(input: SpecInput, spec: SpecResult): { payoutBalls: number; chainCount: number; enteredRush: boolean } {
+  if (Math.random() >= input.rushEntryRate / 100) {
+    return { payoutBalls: 0, chainCount: 0, enteredRush: false };
+  }
+
+  const isDirectLt = spec.regulation.supportsLt && spec.rushMode === "directLt";
+  const isTwoStage = spec.rushMode === "twoStage" && Math.random() < input.upperRushEntryRate / 100;
+  const isLt = spec.regulation.supportsLt
+    && (isDirectLt || isTwoStage || (spec.rushMode === "standard" && Math.random() < spec.ltEntryRateWithinRush));
+  const continuation = isLt
+    ? input.ltContinuationRate / 100
+    : isTwoStage
+      ? input.upperRushContinuationRate / 100
+      : input.rushContinuationRate / 100;
+
+  let payoutBalls = 0;
+  let chainCount = 0;
+  while (Math.random() < continuation) {
+    chainCount++;
+    payoutBalls += drawPayout(input.payoutTiers);
+  }
+
+  return { payoutBalls, chainCount, enteredRush: true };
 }
 
 export function runSimulation(
   input: SpecInput,
   spec: SpecResult,
-  trials = 10000,
+  totalSpins = 2000,
   onProgress?: (current: number) => void
 ): SimulationResult {
-  const hitProb = input.hitProbability;
-  const R = input.continuationRate / 100;
-  const ltEntryRate = spec.ltEntryRate;
-  const roundDist = spec.roundDistribution;
-
-  const SPINS_PER_1000YEN = 19;
-  const YEN_PER_1000 = 1000;
-  const BALL_PRICE = 4;
-
-  let totalPayout = 0;
-  let totalSpins = 0;
+  let currentSpin = 0;
+  let totalInitialHits = 0;
+  let totalRushEntries = 0;
+  let totalPayoutYen = 0;
+  let totalPayoutBalls = 0;
+  let totalInvestmentYen = 0;
   let maxChain = 0;
   let maxHamari = 0;
-  let chainDistribution: Record<number, number> = {};
-  const balanceHistory: number[] = [0];
-
+  let yutimeEntries = 0;
+  let yutimeHits = 0;
   let cumulativeBalance = 0;
-  const SAMPLE_INTERVAL = Math.floor(trials / 200);
+  const chainDistribution: Record<number, number> = {};
+  const balanceHistory: SimulationPoint[] = [{ spin: 0, balance: 0 }];
 
-  for (let i = 0; i < trials; i++) {
-    // 通常時の回転数（指数分布）
-    const spinsToHit = Math.ceil(-Math.log(Math.random()) * hitProb);
-    totalSpins += spinsToHit;
-    if (spinsToHit > maxHamari) maxHamari = spinsToHit;
+  while (currentSpin < totalSpins) {
+    const normal = drawNormalUntilHit(input);
+    const remainingSpins = totalSpins - currentSpin;
 
-    // 投資額
-    const cost = Math.ceil(spinsToHit / SPINS_PER_1000YEN) * YEN_PER_1000;
-
-    // 初当たり出玉（3R固定）
-    let hitPayout = spec.initialPayout * BALL_PRICE;
-
-    // LT突入抽選
-    let chainCount = 0;
-    if (Math.random() < ltEntryRate) {
-      // LT中の連チャン
-      let continuing = true;
-      while (continuing) {
-        chainCount++;
-        // ラウンド振り分け
-        const rand = Math.random();
-        let payout: number;
-        if (rand < roundDist.rate3r) {
-          payout = 450;
-        } else if (rand < roundDist.rate3r + roundDist.rate10r) {
-          payout = 1500;
-        } else {
-          payout = 2400;
-        }
-        hitPayout += payout * BALL_PRICE;
-
-        // 継続抽選
-        if (Math.random() >= R) {
-          continuing = false;
-        }
-      }
+    if (normal.spins > remainingSpins) {
+      const costYen = (remainingSpins / SPINS_PER_1000YEN) * 1000;
+      totalInvestmentYen += costYen;
+      cumulativeBalance -= costYen;
+      currentSpin = totalSpins;
+      balanceHistory.push({ spin: currentSpin, balance: Math.round(cumulativeBalance) });
+      break;
     }
 
-    if (chainCount > maxChain) maxChain = chainCount;
-    chainDistribution[chainCount] = (chainDistribution[chainCount] || 0) + 1;
+    const costYen = (normal.spins / SPINS_PER_1000YEN) * 1000;
+    totalInvestmentYen += costYen;
+    cumulativeBalance -= costYen;
+    currentSpin += normal.spins;
+    maxHamari = Math.max(maxHamari, normal.spins);
+    totalInitialHits++;
+    if (normal.yutimeEntered) yutimeEntries++;
+    if (normal.yutimeHit) yutimeHits++;
 
-    const netBalance = hitPayout - cost;
-    cumulativeBalance += netBalance;
-    totalPayout += hitPayout;
+    const rush = playRush(input, spec);
+    if (rush.enteredRush) totalRushEntries++;
+    maxChain = Math.max(maxChain, rush.chainCount);
+    chainDistribution[rush.chainCount] = (chainDistribution[rush.chainCount] || 0) + 1;
 
-    if (i % SAMPLE_INTERVAL === 0) {
-      balanceHistory.push(cumulativeBalance);
-    }
+    const payoutBalls = input.initialPayout + rush.payoutBalls;
+    const payoutYen = payoutBalls * BALL_PRICE;
+    totalPayoutBalls += payoutBalls;
+    totalPayoutYen += payoutYen;
+    cumulativeBalance += payoutYen;
+    balanceHistory.push({ spin: currentSpin, balance: Math.round(cumulativeBalance) });
 
-    if (onProgress && i % 500 === 0) {
-      onProgress(i);
-    }
+    if (onProgress) onProgress(currentSpin);
   }
 
-  balanceHistory.push(cumulativeBalance);
-
-  const avgPayoutPerHit = totalPayout / trials;
-  const totalCost = totalSpins / SPINS_PER_1000YEN * YEN_PER_1000;
-  const machineRatio = (totalPayout / BALL_PRICE) / (totalCost / BALL_PRICE) * 100;
+  const investedBalls = totalInvestmentYen / BALL_PRICE;
+  const machineRatio = (totalPayoutBalls / Math.max(investedBalls, 1)) * 100;
 
   return {
-    totalHits: trials,
-    totalPayout,
-    avgPayoutPerHit: Math.round(avgPayoutPerHit),
+    totalSpins,
+    totalInitialHits,
+    totalRushEntries,
+    totalPayout: Math.round(totalPayoutYen),
+    avgPayoutPerHit: totalInitialHits > 0 ? Math.round(totalPayoutYen / totalInitialHits) : 0,
     maxChain,
     maxHamari,
+    yutimeEntries,
+    yutimeHits,
     chainDistribution,
     balanceHistory,
     finalBalance: Math.round(cumulativeBalance),

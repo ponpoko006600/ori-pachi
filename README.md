@@ -1,4 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# オリパチ
+
+オリパチは、オリジナルパチンコのスペック作成・比較・シミュレーションができる無料公開予定のサイトです。
+
+## 主な機能
+
+- オリジナルスペック作成
+- LTあり、LTなしの規制タイプ切り替え
+- RUSH、直LT、2段階RUSH対応
+- 出玉振り分けの円グラフ表示
+- 実機プリセット
+- シミュレーション
+- 使い方、用語解説、免責事項、プライバシーポリシー、お問い合わせページ
+
+## 公開準備
+
+公開手順は [DEPLOYMENT.md](./DEPLOYMENT.md) にまとめています。
 
 ## Getting Started
 

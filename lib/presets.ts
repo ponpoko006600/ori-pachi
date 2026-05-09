@@ -1,0 +1,158 @@
+import { SpecInput } from "./calculator";
+
+export interface MachinePreset {
+  id: string;
+  label: string;
+  sourceUrl: string;
+  input: SpecInput;
+}
+
+const yutimeOff = {
+  enabled: false,
+  triggerSpins: 999,
+  supportSpins: 900,
+  probabilityMode: "normal" as const,
+  highProbability: 99,
+};
+
+export const MACHINE_PRESETS: MachinePreset[] = [
+  {
+    id: "eva15",
+    label: "Pエヴァ15",
+    sourceUrl: "https://p-town.dmm.com/machines/4021",
+    input: {
+      name: "P新世紀エヴァンゲリオン15 未来への咆哮",
+      machineType: "P",
+      regulationType: "classic",
+      rushMode: "standard",
+      hitProbability: 319,
+      rushEntryRate: 59,
+      rushContinuationRate: 81,
+      upperRushEntryRate: 0,
+      upperRushContinuationRate: 81,
+      ltContinuationRate: 81,
+      initialPayout: 450,
+      payoutTiers: [
+        { id: "eva15-1500", label: "10R", payout: 1500, rate: 100, bonusCount: 1 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+  {
+    id: "tokyo-ghoul",
+    label: "e東京喰種W",
+    sourceUrl: "https://p-town.dmm.com/machines/4782",
+    input: {
+      name: "e東京喰種W",
+      machineType: "e",
+      regulationType: "lt",
+      rushMode: "directLt",
+      hitProbability: 399,
+      rushEntryRate: 51,
+      rushContinuationRate: 75,
+      upperRushEntryRate: 100,
+      upperRushContinuationRate: 75,
+      ltContinuationRate: 75,
+      initialPayout: 1500,
+      payoutTiers: [
+        { id: "ghoul-3000", label: "10R x2", payout: 3000, rate: 94, bonusCount: 2 },
+        { id: "ghoul-6000", label: "10R x4", payout: 6000, rate: 6, bonusCount: 4 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+  {
+    id: "eva17",
+    label: "eエヴァ17",
+    sourceUrl: "https://p-town.dmm.com/machines/4894",
+    input: {
+      name: "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+      machineType: "e",
+      regulationType: "lt",
+      rushMode: "directLt",
+      hitProbability: 399,
+      rushEntryRate: 61,
+      rushContinuationRate: 80,
+      upperRushEntryRate: 100,
+      upperRushContinuationRate: 80,
+      ltContinuationRate: 80,
+      initialPayout: 1500,
+      payoutTiers: [
+        { id: "eva17-2400", label: "8R x2", payout: 2400, rate: 100, bonusCount: 2 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+  {
+    id: "rezero2",
+    label: "eリゼロ2",
+    sourceUrl: "https://p-town.dmm.com/machines/4457",
+    input: {
+      name: "e Re:ゼロから始める異世界生活 season2M13",
+      machineType: "e",
+      regulationType: "classic",
+      rushMode: "standard",
+      hitProbability: 349,
+      rushEntryRate: 55,
+      rushContinuationRate: 77,
+      upperRushEntryRate: 0,
+      upperRushContinuationRate: 77,
+      ltContinuationRate: 77,
+      initialPayout: 1500,
+      payoutTiers: [
+        { id: "rezero-1500", label: "10R", payout: 1500, rate: 75, bonusCount: 1 },
+        { id: "rezero-3000", label: "10R x2", payout: 3000, rate: 25, bonusCount: 2 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+  {
+    id: "karakuri2",
+    label: "eからくり2",
+    sourceUrl: "https://p-town.dmm.com/machines/4649",
+    input: {
+      name: "eフィーバーからくりサーカス2R",
+      machineType: "e",
+      regulationType: "lt",
+      rushMode: "directLt",
+      hitProbability: 399,
+      rushEntryRate: 52,
+      rushContinuationRate: 80,
+      upperRushEntryRate: 100,
+      upperRushContinuationRate: 80,
+      ltContinuationRate: 80,
+      initialPayout: 300,
+      payoutTiers: [
+        { id: "karakuri-reset", label: "STリセット", payout: 0, rate: 18, bonusCount: 1 },
+        { id: "karakuri-1500", label: "10R", payout: 1500, rate: 62, bonusCount: 1 },
+        { id: "karakuri-3000", label: "10R x2", payout: 3000, rate: 15, bonusCount: 2 },
+        { id: "karakuri-4500", label: "10R x3", payout: 4500, rate: 4, bonusCount: 3 },
+        { id: "karakuri-7500", label: "10R x5", payout: 7500, rate: 1, bonusCount: 5 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+  {
+    id: "gensan2",
+    label: "P源さん超韋駄天2",
+    sourceUrl: "https://p-town.dmm.com/machines/4532",
+    input: {
+      name: "P大工の源さん超韋駄天2HLB",
+      machineType: "P",
+      regulationType: "lt",
+      rushMode: "twoStage",
+      hitProbability: 129,
+      rushEntryRate: 56,
+      rushContinuationRate: 88,
+      upperRushEntryRate: 25,
+      upperRushContinuationRate: 96,
+      ltContinuationRate: 96,
+      initialPayout: 240,
+      payoutTiers: [
+        { id: "gensan-240", label: "3R", payout: 240, rate: 75, bonusCount: 1 },
+        { id: "gensan-720", label: "9R", payout: 720, rate: 25, bonusCount: 1 },
+      ],
+      yutime: yutimeOff,
+    },
+  },
+];

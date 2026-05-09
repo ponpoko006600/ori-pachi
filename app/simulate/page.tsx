@@ -1,198 +1,252 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
-import { calculateSpec, calculateBorder, SpecInput, MachineType, HitProbability, CalculationType } from "@/lib/calculator";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  calculateBorder,
+  calculateSpec,
+  DEFAULT_PAYOUT_TIERS,
+  DEFAULT_YUTIME,
+  SpecInput,
+} from "@/lib/calculator";
 import { runSimulation, SimulationResult } from "@/lib/simulator";
 import BorderAnalyzer from "@/components/BorderAnalyzer";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
+
+const SIMULATION_SPINS = 2000;
+
+function withDefaults(value: Partial<SpecInput>): SpecInput {
+  return {
+    name: value.name ?? "オリジナル台",
+    machineType: value.machineType ?? "e",
+    regulationType: value.regulationType ?? "lt",
+    rushMode: value.rushMode ?? "standard",
+    hitProbability: value.hitProbability ?? 319,
+    rushEntryRate: value.rushEntryRate ?? 55,
+    rushContinuationRate: value.rushContinuationRate ?? 72,
+    upperRushEntryRate: value.upperRushEntryRate ?? 25,
+    upperRushContinuationRate: value.upperRushContinuationRate ?? 81,
+    ltContinuationRate: value.ltContinuationRate ?? 85,
+    initialPayout: value.initialPayout ?? 450,
+    payoutTiers: (value.payoutTiers ?? DEFAULT_PAYOUT_TIERS).map((tier, index) => ({
+      ...tier,
+      bonusCount: tier.bonusCount ?? Math.max(1, Math.ceil((tier.payout ?? 0) / 1500)),
+      id: tier.id ?? `tier-${index}`,
+    })),
+    yutime: { ...DEFAULT_YUTIME, ...(value.yutime ?? {}) },
+  };
+}
+
+function getInputFromParams(params: URLSearchParams): SpecInput {
+  const raw = params.get("spec");
+  if (raw) {
+    try {
+      return withDefaults(JSON.parse(raw) as Partial<SpecInput>);
+    } catch {
+      try {
+        return withDefaults(JSON.parse(decodeURIComponent(raw)) as Partial<SpecInput>);
+      } catch {
+        // fall through to default
+      }
+    }
+  }
+
+  return {
+    name: "オリジナル台",
+    machineType: "e",
+    regulationType: "lt",
+    rushMode: "standard",
+    hitProbability: 319,
+    rushEntryRate: 55,
+    rushContinuationRate: 72,
+    upperRushEntryRate: 25,
+    upperRushContinuationRate: 81,
+    ltContinuationRate: 85,
+    initialPayout: 450,
+    payoutTiers: DEFAULT_PAYOUT_TIERS,
+    yutime: DEFAULT_YUTIME,
+  };
+}
 
 function SimulatePage() {
   const params = useSearchParams();
   const router = useRouter();
-
-  const input: SpecInput = {
-    machineType: (params.get("machineType") || "e") as MachineType,
-    hitProbability: Number(params.get("hitProbability") || 319) as HitProbability,
-    continuationRate: Number(params.get("continuationRate") || 85),
-    calculationType: (params.get("calculationType") || "C") as CalculationType,
-    name: params.get("name") || "オリジナル台",
-  };
-
+  const input = getInputFromParams(params);
   const spec = calculateSpec(input);
-  const border = !spec.error ? calculateBorder(input, spec) : null;
+  const border = spec.check.ok ? calculateBorder(input, spec) : null;
 
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
 
   function handleSimulate() {
+    if (!spec.check.ok) return;
     setRunning(true);
     setProgress(0);
     setSimResult(null);
 
     setTimeout(() => {
-      const result = runSimulation(input, spec, 10000, (current) => {
+      const result = runSimulation(input, spec, SIMULATION_SPINS, (current) => {
         setProgress(current);
       });
       setSimResult(result);
       setRunning(false);
-      setProgress(10000);
+      setProgress(SIMULATION_SPINS);
     }, 50);
   }
 
-  const balanceData = simResult?.balanceHistory.map((v, i) => ({
-    x: i,
-    balance: Math.round(v),
+  const balanceData = simResult?.balanceHistory.map((point) => ({
+    spin: point.spin,
+    balance: Math.round(point.balance),
   })) || [];
 
   const chainData = simResult
     ? Object.entries(simResult.chainDistribution)
-        .map(([k, v]) => ({ chain: `${k}連`, count: v }))
+        .map(([chain, count]) => ({ chain: `${chain}連`, count }))
         .sort((a, b) => parseInt(a.chain) - parseInt(b.chain))
         .slice(0, 20)
     : [];
 
   return (
-    <main className="min-h-screen" style={{ background: "linear-gradient(135deg, #0a0a0f 0%, #0f0a1a 50%, #0a0f1a 100%)" }}>
-      {/* Header */}
-      <header className="border-b border-white/10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-white/40 hover:text-white text-sm">← 戻る</button>
-        <span className="text-xl">🎰</span>
-        <span className="font-bold neon-pink">PachiSpec</span>
-        <span className="text-white/40 text-sm">シミュレーター</span>
+    <main className="min-h-screen app-bg">
+      <header className="app-header">
+        <button onClick={() => router.back()} className="back-button">戻る</button>
+        <span className="brand-mark">P</span>
+        <div>
+          <span className="brand-name">PachiSpec</span>
+          <span className="brand-sub">シミュレーター</span>
+        </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* スペック概要 */}
-        <div className="glow-border rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)" }}>
-          <h2 className="font-bold mb-3">「{input.name}」のシミュレーター</h2>
-          <div className="grid grid-cols-3 gap-3 text-center">
+      <div className="simulate-shell">
+        <section className="result-shell">
+          <div className="result-header">
             <div>
-              <div className="text-xs text-white/40">大当たり</div>
-              <div className="font-bold neon-cyan">1/{input.hitProbability}</div>
+              <p className="result-kicker">{spec.regulation.label}</p>
+              <h2>「{input.name}」のシミュレーター</h2>
             </div>
-            <div>
-              <div className="text-xs text-white/40">継続率</div>
-              <div className="font-bold neon-gold">{input.continuationRate}%</div>
-            </div>
-            <div>
-              <div className="text-xs text-white/40">LT突入率</div>
-              <div className="font-bold neon-pink">{Math.round(spec.ltEntryRate * 100)}%</div>
+            <div className={spec.check.ok ? "status-pill ok" : "status-pill warn"}>
+              {spec.check.ok ? "実行可能" : "要調整"}
             </div>
           </div>
-        </div>
+          <div className="result-body">
+            <div className="stat-grid">
+              <ResultStat label="大当たり" value={`1/${input.hitProbability}`} highlight />
+              <ResultStat label="RUSH突入" value={`${input.rushEntryRate}%`} highlight />
+              {spec.rushMode !== "directLt" && <ResultStat label="RUSH継続" value={`${input.rushContinuationRate}%`} />}
+              {spec.rushMode === "twoStage" && <ResultStat label="上位突入" value={`${input.upperRushEntryRate}%`} />}
+              {spec.rushMode === "twoStage" && !spec.regulation.supportsLt && <ResultStat label="上位継続" value={`${input.upperRushContinuationRate}%`} />}
+              <ResultStat label="初当たり期待" value={`約${spec.avgTotalPayout.toLocaleString()}発`} highlight color="cyan" />
+              {spec.regulation.supportsLt && (
+                <>
+                  <ResultStat label="LT継続" value={`${input.ltContinuationRate}%`} highlight color="gold" />
+                  <ResultStat label="初当たりLT突入" value={`約${Math.round(spec.ltEntryRate * 100)}%`} />
+                </>
+              )}
+            </div>
+          </div>
+        </section>
 
-        {/* ボーダー分析 */}
-        {border && (
-          <BorderAnalyzer
-            hitProbability={input.hitProbability}
-            border={border}
-          />
+        {border && <BorderAnalyzer hitProbability={input.hitProbability} border={border} />}
+
+        {!spec.check.ok && (
+          <div className="warning-banner">
+            <strong>シミュレーションできません</strong>
+            <span>{spec.error}</span>
+          </div>
         )}
 
-        {/* シミュレートボタン */}
         <button
           onClick={handleSimulate}
-          disabled={running}
-          className="w-full py-4 rounded-xl font-bold text-lg text-white transition-all active:scale-95 disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, #0891b2, #6366f1)", boxShadow: "0 0 20px rgba(8,145,178,0.3)" }}
+          disabled={running || !spec.check.ok}
+          className="primary-action wide"
         >
-          {running ? "シミュレート中..." : "🎲 10,000回シミュレート開始"}
+          {running ? "シミュレート中..." : `${SIMULATION_SPINS.toLocaleString()}回転シミュレート開始`}
         </button>
 
-        {/* 進捗 */}
         {(running || progress > 0) && (
-          <div>
-            <div className="flex justify-between text-xs text-white/40 mb-1">
-              <span>シミュレート中...</span>
-              <span>{progress.toLocaleString()} / 10,000</span>
+          <div className="progress-block">
+            <div className="progress-label">
+              <span>進捗</span>
+              <span>{progress.toLocaleString()} / {SIMULATION_SPINS.toLocaleString()}回転</span>
             </div>
-            <div className="w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)", height: "6px" }}>
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${(progress / 10000) * 100}%`, background: "linear-gradient(to right, #0891b2, #6366f1)" }}
-              />
+            <div className="progress-track">
+              <div style={{ width: `${(progress / SIMULATION_SPINS) * 100}%` }} />
             </div>
           </div>
         )}
 
-        {/* 結果 */}
         {simResult && (
           <>
-            {/* 数値サマリー */}
-            <div className="glow-border-cyan rounded-xl p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <h3 className="text-sm text-white/40 uppercase tracking-wider mb-4">📊 シミュレーション結果</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <ResultStat label="総初当たり回数" value="10,000回" />
-                <ResultStat label="平均出玉/初当たり" value={`${simResult.avgPayoutPerHit.toLocaleString()}円`} highlight />
-                <ResultStat label="最大連チャン" value={`${simResult.maxChain}連`} highlight color="gold" />
-                <ResultStat label="最大ハマり" value={`${simResult.maxHamari.toLocaleString()}回転`} />
-                <ResultStat label="最終累計収支" value={`${simResult.finalBalance >= 0 ? "+" : ""}${simResult.finalBalance.toLocaleString()}円`} highlight color={simResult.finalBalance >= 0 ? "cyan" : "pink"} />
-                <ResultStat label="機械割" value={`${simResult.machineRatio}%`} />
+            <section className="result-shell">
+              <div className="result-body">
+                <h3>シミュレーション結果</h3>
+                <div className="stat-grid">
+                  <ResultStat label="通常時総回転数" value={`${simResult.totalSpins.toLocaleString()}回転`} />
+                  <ResultStat label="総初当たり回数" value={`${simResult.totalInitialHits.toLocaleString()}回`} />
+                  <ResultStat label="RUSH突入回数" value={`${simResult.totalRushEntries.toLocaleString()}回`} />
+                  <ResultStat label="平均回収/初当たり" value={`${simResult.avgPayoutPerHit.toLocaleString()}円`} highlight />
+                  <ResultStat label="最大連チャン" value={`${simResult.maxChain}連`} highlight color="gold" />
+                  <ResultStat label="最大ハマり" value={`${simResult.maxHamari.toLocaleString()}回転`} />
+                  <ResultStat label="遊タイム突入" value={`${simResult.yutimeEntries.toLocaleString()}回`} />
+                  <ResultStat label="遊タイム当選" value={`${simResult.yutimeHits.toLocaleString()}回`} />
+                  <ResultStat
+                    label="最終累計収支"
+                    value={`${simResult.finalBalance >= 0 ? "+" : ""}${simResult.finalBalance.toLocaleString()}円`}
+                    highlight
+                    color={simResult.finalBalance >= 0 ? "cyan" : "pink"}
+                  />
+                  <ResultStat label="機械割" value={`${simResult.machineRatio}%`} />
+                </div>
               </div>
-            </div>
+            </section>
 
-            {/* スランプグラフ */}
-            <div className="glow-border rounded-xl p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <h3 className="text-sm text-white/40 uppercase tracking-wider mb-4">📈 スランプグラフ（累計収支）</h3>
-              <ResponsiveContainer width="100%" height={200}>
+            <section className="chart-panel">
+              <h3>スランプグラフ</h3>
+              <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={balanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="x" hide />
-                  <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="spin" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 10 }} />
+                  <YAxis tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k`} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px" }}
+                    contentStyle={{ background: "#141827", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px" }}
                     labelStyle={{ display: "none" }}
-                    formatter={(v: number) => [`${v.toLocaleString()}円`, "収支"]}
+                    formatter={(value) => [`${Number(value ?? 0).toLocaleString()}円`, "収支"]}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="balance"
-                    stroke="#00e5ff"
-                    strokeWidth={2}
-                    dot={false}
-                  />
+                  <Line type="monotone" dataKey="balance" stroke="#00e5ff" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
-            </div>
+            </section>
 
-            {/* 連チャン分布 */}
-            <div className="glow-border rounded-xl p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <h3 className="text-sm text-white/40 uppercase tracking-wider mb-4">🎲 連チャン分布</h3>
-              <ResponsiveContainer width="100%" height={200}>
+            <section className="chart-panel">
+              <h3>連チャン分布</h3>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chainData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="chain" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} />
-                  <YAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="chain" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px" }}
-                    formatter={(v: number) => [`${v.toLocaleString()}回`, "発生回数"]}
+                    contentStyle={{ background: "#141827", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px" }}
+                    formatter={(value) => [`${Number(value ?? 0).toLocaleString()}回`, "発生回数"]}
                   />
                   <Bar dataKey="count" fill="#ff2d78" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </section>
 
-            {/* もう一度 */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleSimulate}
-                className="py-3 rounded-xl font-bold text-sm text-white"
-                style={{ background: "linear-gradient(135deg, #0891b2, #6366f1)" }}
-              >
-                🔄 もう一度
-              </button>
-              <button
-                onClick={() => router.back()}
-                className="py-3 rounded-xl font-bold text-sm text-white/60"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
-              >
-                ← スペックに戻る
-              </button>
+            <div className="create-actions">
+              <button onClick={handleSimulate} className="primary-action">もう一度</button>
+              <button onClick={() => router.back()} className="secondary-action">スペックに戻る</button>
             </div>
           </>
         )}
@@ -208,14 +262,14 @@ function ResultStat({ label, value, highlight, color }: {
   color?: "cyan" | "gold" | "pink";
 }) {
   const valueClass = highlight
-    ? color === "gold" ? "neon-gold font-bold text-lg"
-    : color === "pink" ? "neon-pink font-bold text-lg"
-    : "neon-cyan font-bold text-lg"
-    : "text-white font-semibold";
+    ? color === "gold" ? "stat-value gold"
+    : color === "pink" ? "stat-value pink"
+    : "stat-value cyan"
+    : "stat-value";
 
   return (
-    <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.05)" }}>
-      <div className="text-xs text-white/40 mb-1">{label}</div>
+    <div className="stat-item">
+      <div className="stat-label">{label}</div>
       <div className={valueClass}>{value}</div>
     </div>
   );
@@ -223,7 +277,7 @@ function ResultStat({ label, value, highlight, color }: {
 
 export default function SimulatePageWrapper() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white">読み込み中...</div>}>
+    <Suspense fallback={<div className="min-h-screen app-bg loading-screen">読み込み中...</div>}>
       <SimulatePage />
     </Suspense>
   );

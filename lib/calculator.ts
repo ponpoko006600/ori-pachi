@@ -1,40 +1,145 @@
-// 総量規定 (LT3.0+ 2025年7月7日施行)
-export const REGULATIONS = {
-  MAX_INITIAL_PAYOUT: 6400,
-  MAX_LT_TOTAL_PAYOUT: 9600,
-  MAX_LT_RATIO: 0.8,
-} as const;
-
 export type MachineType = "P" | "e";
-export type HitProbability = 99 | 199 | 319 | 349 | 399;
-export type CalculationType = "A" | "B" | "C";
+export type HitProbability = 99 | 129 | 199 | 319 | 349 | 399;
+export type RegulationType = "lt" | "classic";
+export type ProbabilityMode = "normal" | "high";
+export type RushMode = "standard" | "directLt" | "twoStage";
 
-export interface SpecInput {
-  machineType: MachineType;
-  hitProbability: HitProbability;
-  continuationRate: number; // 50-99
-  calculationType: CalculationType;
-  name: string;
+export interface PayoutTier {
+  id: string;
+  label: string;
+  payout: number;
+  rate: number;
+  bonusCount: number;
 }
 
-export interface RoundDistribution {
-  rate3r: number;
-  rate10r: number;
-  rate16r: number;
+export interface YutimeSettings {
+  enabled: boolean;
+  triggerSpins: number;
+  supportSpins: number;
+  probabilityMode: ProbabilityMode;
+  highProbability: number;
+}
+
+export interface SpecInput {
+  name: string;
+  machineType: MachineType;
+  regulationType: RegulationType;
+  rushMode: RushMode;
+  hitProbability: HitProbability;
+  rushEntryRate: number;
+  rushContinuationRate: number;
+  upperRushEntryRate: number;
+  upperRushContinuationRate: number;
+  ltContinuationRate: number;
+  initialPayout: number;
+  payoutTiers: PayoutTier[];
+  yutime: YutimeSettings;
+}
+
+export interface RegulationPreset {
+  id: RegulationType;
+  label: string;
+  shortLabel: string;
+  description: string;
+  maxInitialPayout: number;
+  maxLtTotalPayout?: number;
+  maxLtRatio?: number;
+  maxPayoutPerBonus: number;
+  maxPayoutPerUnit: number;
+  maxPayoutBundle: number;
+  maxBonusCount: number;
+  maxContinuationRate: number;
+  supportsLt: boolean;
+}
+
+export interface RegulationCheck {
+  ok: boolean;
+  warnings: string[];
+  causes: string[];
+  payoutTierTotalRate: number;
+  ltRatio: number;
+  remainingLtPayout: number;
+  headroomBalls: number;
 }
 
 export interface SpecResult {
-  rushProbability: number;       // RUSH中確率（分母）
-  stCount: number;               // ST/時短回数
-  ltEntryRate: number;           // LT突入率（0-1）
-  avgChain: number;              // 平均連チャン数
-  avgPayoutPerChain: number;     // 1連あたり平均出玉
-  avgLtPayout: number;           // 1回のLT平均出玉
-  initialPayout: number;         // 初当たり期待出玉
-  roundDistribution: RoundDistribution;
+  regulation: RegulationPreset;
+  rushProbability: number;
+  stCount: number;
+  ltStCount: number;
+  rushMode: RushMode;
+  rushEntryRate: number;
+  upperRushEntryRate: number;
+  ltEntryRate: number;
+  ltEntryRateWithinRush: number;
+  avgRushChain: number;
+  avgUpperRushChain: number;
+  avgLtChain: number;
+  avgPayoutPerBonus: number;
+  avgRushPayout: number;
+  avgUpperRushPayout: number;
+  avgLtPayout: number;
+  initialPayout: number;
+  avgTotalPayout: number;
+  payoutTiers: PayoutTier[];
+  entryChartTiers: PayoutTier[];
+  check: RegulationCheck;
+  suggestions: string[];
   error?: string;
-  suggestion?: string;
 }
+
+export interface BorderResult {
+  avgTotalPayoutBalls: number;
+  borderSpins: number;
+}
+
+export const REGULATIONS: Record<RegulationType, RegulationPreset> = {
+  lt: {
+    id: "lt",
+    label: "タイプA：LTあり規制",
+    shortLabel: "LTあり",
+    description: "LT期待出玉9,600発、初当たり出玉6,400発、LT比率80%を上限として判定します。",
+    maxInitialPayout: 6400,
+    maxLtTotalPayout: 9600,
+    maxLtRatio: 0.8,
+    maxPayoutPerBonus: 2400,
+    maxPayoutPerUnit: 1500,
+    maxPayoutBundle: 10000,
+    maxBonusCount: 5,
+    maxContinuationRate: 99,
+    supportsLt: true,
+  },
+  classic: {
+    id: "classic",
+    label: "タイプB：LTなし規制",
+    shortLabel: "LTなし",
+    description: "1回あたりの出玉1,500発、継続率81%を上限とした旧来型として判定します。",
+    maxInitialPayout: 1500,
+    maxPayoutPerBonus: 1500,
+    maxPayoutPerUnit: 1500,
+    maxPayoutBundle: 7500,
+    maxBonusCount: 5,
+    maxContinuationRate: 81,
+    supportsLt: false,
+  },
+};
+
+export const HIT_PROBS: HitProbability[] = [99, 129, 199, 319, 349, 399];
+
+export const DEFAULT_YUTIME: YutimeSettings = {
+  enabled: false,
+  triggerSpins: 999,
+  supportSpins: 900,
+  probabilityMode: "normal",
+  highProbability: 99,
+};
+
+export const DEFAULT_PAYOUT_TIERS: PayoutTier[] = [
+  { id: "tier-reset", label: "STリセット", payout: 0, rate: 5, bonusCount: 1 },
+  { id: "tier-450", label: "3R", payout: 450, rate: 35, bonusCount: 1 },
+  { id: "tier-1500", label: "10R", payout: 1500, rate: 50, bonusCount: 1 },
+  { id: "tier-3000", label: "10R x2", payout: 3000, rate: 10, bonusCount: 2 },
+];
 
 const RUSH_PROBABILITY: Record<MachineType, number> = {
   e: 79,
@@ -43,140 +148,254 @@ const RUSH_PROBABILITY: Record<MachineType, number> = {
 
 const ST_COUNT: Record<HitProbability, number> = {
   99: 30,
+  129: 6,
   199: 80,
-  319: 163,
-  349: 180,
-  399: 200,
+  319: 130,
+  349: 144,
+  399: 163,
 };
 
-const PAYOUT_PER_ROUND = 150;
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
 
-function calcRoundDistribution(avgPayoutPerChain: number): RoundDistribution {
-  const p3r = 450;
-  const p10r = 1500;
-  const p16r = 2400;
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
-  // avgPayoutPerChain を 3R/10R/16R の組み合わせで近似
-  // バランス重視の固定配分から逆算
-  if (avgPayoutPerChain <= p3r) {
-    return { rate3r: 1, rate10r: 0, rate16r: 0 };
-  }
-  if (avgPayoutPerChain >= p16r) {
-    return { rate3r: 0, rate10r: 0, rate16r: 1 };
-  }
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
-  // 線形補間で配分を決める
-  if (avgPayoutPerChain <= p10r) {
-    const t = (avgPayoutPerChain - p3r) / (p10r - p3r);
-    return {
-      rate3r: Math.round((1 - t) * 100) / 100,
-      rate10r: Math.round(t * 100) / 100,
-      rate16r: 0,
-    };
-  } else {
-    const t = (avgPayoutPerChain - p10r) / (p16r - p10r);
-    return {
-      rate3r: 0,
-      rate10r: Math.round((1 - t) * 100) / 100,
-      rate16r: Math.round(t * 100) / 100,
-    };
-  }
+function chainAverage(continuationRate: number): number {
+  return 1 / (1 - clamp(continuationRate, 1, 99.8) / 100);
+}
+
+function futureHitAverage(continuationRate: number): number {
+  const rate = clamp(continuationRate, 1, 99.8) / 100;
+  return rate / (1 - rate);
+}
+
+function normalizeMode(input: SpecInput, regulation: RegulationPreset): RushMode {
+  if (!regulation.supportsLt && input.rushMode === "directLt") return "standard";
+  return input.rushMode ?? "standard";
+}
+
+export function getRegulation(input: Pick<SpecInput, "regulationType">): RegulationPreset {
+  return REGULATIONS[input.regulationType];
+}
+
+export function getPayoutTierRateTotal(tiers: PayoutTier[]): number {
+  return round1(tiers.reduce((sum, tier) => sum + (Number.isFinite(tier.rate) ? tier.rate : 0), 0));
+}
+
+export function getAveragePayout(tiers: PayoutTier[]): number {
+  return tiers.reduce((sum, tier) => sum + tier.payout * (tier.rate / 100), 0);
+}
+
+export function getMaxPayoutForRegulation(regulationType: RegulationType): number {
+  return REGULATIONS[regulationType].maxPayoutBundle;
 }
 
 export function calculateSpec(input: SpecInput): SpecResult {
-  const { machineType, hitProbability, continuationRate, calculationType } = input;
-  const R = continuationRate / 100;
+  const regulation = getRegulation(input);
+  const rushMode = normalizeMode(input, regulation);
+  const rushProbability = RUSH_PROBABILITY[input.machineType];
+  const stCount = ST_COUNT[input.hitProbability];
+  const ltStCount = Math.max(stCount, Math.round(stCount * 1.25));
+  const rushEntryRate = clamp(input.rushEntryRate, 0, 100) / 100;
+  const upperRushEntryRate = rushMode === "twoStage" ? clamp(input.upperRushEntryRate, 0, 100) / 100 : 0;
+  const avgRushChain = rushMode === "directLt" ? 0 : chainAverage(input.rushContinuationRate);
+  const avgUpperRushChain = rushMode === "twoStage" ? chainAverage(input.upperRushContinuationRate) : 0;
+  const avgLtChain = regulation.supportsLt ? chainAverage(input.ltContinuationRate) : 0;
+  const avgPayoutPerBonus = getAveragePayout(input.payoutTiers);
+  const avgRushPayout = avgPayoutPerBonus * (rushMode === "directLt" ? 0 : futureHitAverage(input.rushContinuationRate));
+  const avgUpperRushPayout = avgPayoutPerBonus * (rushMode === "twoStage" ? futureHitAverage(input.upperRushContinuationRate) : 0);
+  const avgLtPayout = regulation.supportsLt ? avgPayoutPerBonus * futureHitAverage(input.ltContinuationRate) : 0;
+  const tierRateTotal = getPayoutTierRateTotal(input.payoutTiers);
 
-  const rushProbability = RUSH_PROBABILITY[machineType];
-  const stCount = ST_COUNT[hitProbability];
+  const warnings: string[] = [];
+  const causes = new Set<string>();
 
-  // ステップ1: 平均連チャン数
-  const avgChain = 1 / (1 - R);
+  if (Math.abs(tierRateTotal - 100) > 0.01) {
+    warnings.push(`出玉振り分けの合計が${tierRateTotal}%です。100%にしてください。`);
+    causes.add("payoutTiers");
+  }
 
-  // ステップ2: 1連あたり最大出玉
-  const maxPayoutPerChain = REGULATIONS.MAX_LT_TOTAL_PAYOUT / avgChain;
+  if (input.initialPayout > regulation.maxInitialPayout) {
+    warnings.push(`初当たり出玉が${regulation.maxInitialPayout.toLocaleString()}発の上限を超えています。`);
+    causes.add("initialPayout");
+  }
 
-  let ltEntryRate: number;
-  let avgPayoutPerChain: number;
+  const overBundle = input.payoutTiers.find((tier) => tier.payout > regulation.maxPayoutBundle);
+  if (overBundle) {
+    warnings.push(`出玉ティア「${overBundle.label}」が表示上限${regulation.maxPayoutBundle.toLocaleString()}発を超えています。`);
+    causes.add("payoutTiers");
+  }
 
-  if (calculationType === "A") {
-    // 一撃重視: 出玉を最大化、突入率は低め
-    avgPayoutPerChain = maxPayoutPerChain * 0.95;
-    // LT総出玉の割合から突入率を逆算
-    // LT獲得出玉 / 総出玉 <= 0.8
-    // totalLtPayout = avgChain * avgPayoutPerChain * ltEntryRate (per initial hit)
-    // initialPayout + ltEntryRate * avgLtPayout <= totalPayout
-    // 初当たり出玉は3R固定とする（突入率を上げるため出玉を抑える）
-    const initialPayout = 450;
-    const ltPayout = avgChain * avgPayoutPerChain;
-    // ltEntryRate * ltPayout / (initialPayout + ltEntryRate * ltPayout) <= 0.8
-    // ltEntryRate * ltPayout <= 0.8 * initialPayout + 0.8 * ltEntryRate * ltPayout
-    // 0.2 * ltEntryRate * ltPayout <= 0.8 * initialPayout
-    // ltEntryRate <= 4 * initialPayout / ltPayout
-    const maxEntryByRatio = (REGULATIONS.MAX_LT_RATIO * initialPayout) / ((1 - REGULATIONS.MAX_LT_RATIO) * ltPayout);
-    ltEntryRate = Math.min(maxEntryByRatio, 0.5);
-  } else if (calculationType === "B") {
-    // チャンス重視: 突入率を最大化
-    ltEntryRate = 0.8;
-    // 突入率から逆算して出玉を決める
-    const initialPayout = 450;
-    const ltPayout = avgChain * maxPayoutPerChain;
-    const actualMaxByRatio = (REGULATIONS.MAX_LT_RATIO * initialPayout) / ((1 - REGULATIONS.MAX_LT_RATIO) * avgChain * ltEntryRate);
-    avgPayoutPerChain = Math.min(maxPayoutPerChain * 0.7, actualMaxByRatio / ltEntryRate);
-    if (avgPayoutPerChain < 450) avgPayoutPerChain = 450;
+  const impossibleTier = input.payoutTiers.find((tier) => tier.payout > regulation.maxPayoutPerUnit * Math.max(1, tier.bonusCount));
+  if (impossibleTier) {
+    warnings.push(`「${impossibleTier.label}」は内部当たり${impossibleTier.bonusCount}回では再現しにくい出玉です。内部当たり回数を増やしてください。`);
+    causes.add("payoutTiers");
+  }
+
+  if (!regulation.supportsLt && input.rushContinuationRate > regulation.maxContinuationRate) {
+    warnings.push(`LTなし規制では下位RUSH継続率の上限を${regulation.maxContinuationRate}%として判定します。`);
+    causes.add("rushContinuationRate");
+  }
+
+  if (!regulation.supportsLt && rushMode === "twoStage" && input.upperRushContinuationRate > regulation.maxContinuationRate) {
+    warnings.push(`LTなし規制では上位RUSH継続率の上限を${regulation.maxContinuationRate}%として判定します。`);
+    causes.add("upperRushContinuationRate");
+  }
+
+  if (regulation.supportsLt && regulation.maxLtTotalPayout && avgLtPayout > regulation.maxLtTotalPayout) {
+    warnings.push(`LT期待出玉が${Math.round(avgLtPayout).toLocaleString()}発で、${regulation.maxLtTotalPayout.toLocaleString()}発の上限を超えています。`);
+    causes.add("ltContinuationRate");
+    causes.add("payoutTiers");
+  }
+
+  let ltEntryRateWithinRush = 0;
+  if (regulation.supportsLt && avgLtPayout > 0) {
+    if (rushMode === "directLt") {
+      ltEntryRateWithinRush = 1;
+    } else if (rushMode === "twoStage") {
+      ltEntryRateWithinRush = upperRushEntryRate;
+    } else if (regulation.maxLtRatio) {
+      const maxLtShareByRatio = (regulation.maxLtRatio * input.initialPayout)
+        / ((1 - regulation.maxLtRatio) * Math.max(avgLtPayout, 1) * Math.max(rushEntryRate, 0.001));
+      ltEntryRateWithinRush = clamp(maxLtShareByRatio, 0, 1);
+    }
+  }
+
+  const ltEntryRate = regulation.supportsLt ? rushEntryRate * ltEntryRateWithinRush : 0;
+  const lowerRushExpected = rushMode === "directLt"
+    ? 0
+    : rushEntryRate * (1 - ltEntryRateWithinRush) * avgRushPayout;
+  const upperRushExpected = !regulation.supportsLt && rushMode === "twoStage"
+    ? rushEntryRate * upperRushEntryRate * avgUpperRushPayout
+    : 0;
+  const ltExpected = regulation.supportsLt ? ltEntryRate * avgLtPayout : 0;
+  const classicRushExpected = !regulation.supportsLt && rushMode !== "twoStage"
+    ? rushEntryRate * avgRushPayout
+    : 0;
+  const avgTotalPayout = input.initialPayout + lowerRushExpected + upperRushExpected + ltExpected + classicRushExpected;
+  const ltRatio = ltExpected / Math.max(input.initialPayout + lowerRushExpected + ltExpected, 1);
+  const suggestions: string[] = [];
+
+  if (regulation.supportsLt && regulation.maxLtRatio && ltRatio > regulation.maxLtRatio + 0.001) {
+    if (rushMode === "directLt") {
+      suggestions.push(`直LT系のため、LT比率${Math.round(ltRatio * 100)}%は参考値として表示しています。`);
+    } else {
+      warnings.push(`LT比率が約${Math.round(ltRatio * 100)}%で、${Math.round(regulation.maxLtRatio * 100)}%上限を超えています。突入率・LT継続率・LT出玉を下げてください。`);
+      causes.add(rushMode === "twoStage" ? "upperRushEntryRate" : "rushEntryRate");
+      causes.add("ltContinuationRate");
+      causes.add("payoutTiers");
+    }
+  }
+
+  const remainingLtPayout = regulation.maxLtTotalPayout ? regulation.maxLtTotalPayout - avgLtPayout : 0;
+  const headroomBalls = Math.max(0, (regulation.maxLtTotalPayout ?? regulation.maxPayoutBundle) - Math.max(avgLtPayout, avgUpperRushPayout, avgRushPayout));
+
+  if (warnings.length === 0) {
+    if (regulation.supportsLt && rushMode === "directLt") {
+      suggestions.push("直LT型として計算しています。初当たり後にRUSHを挟まず、突入時はLT継続率を使います。");
+    }
+    if (rushMode === "twoStage") {
+      suggestions.push(regulation.supportsLt ? "2段階RUSH型として、上位突入後をLTとして計算しています。" : "2段階RUSH型として、下位RUSHと上位RUSHを分けて計算しています。");
+    }
+    if (regulation.supportsLt && remainingLtPayout > 100) {
+      suggestions.push(`LT期待出玉に約${Math.round(remainingLtPayout).toLocaleString()}発の余裕があります。出玉ティアかLT継続率を上げられます。`);
+    } else if (!regulation.supportsLt && Math.max(input.rushContinuationRate, input.upperRushContinuationRate) < regulation.maxContinuationRate) {
+      suggestions.push(`LTなし規制の継続率上限まで、あと${round1(regulation.maxContinuationRate - Math.max(input.rushContinuationRate, input.upperRushContinuationRate))}%上げられます。`);
+    }
   } else {
-    // バランス
-    ltEntryRate = 0.6;
-    avgPayoutPerChain = maxPayoutPerChain * 0.7;
+    suggestions.push("赤く表示された項目を下げるか、内部当たり回数・出玉振り分けの合計を調整してください。");
   }
 
-  // 規定チェック
-  const avgLtPayout = avgChain * avgPayoutPerChain;
-  const initialPayout = 450;
-
-  if (avgLtPayout >= REGULATIONS.MAX_LT_TOTAL_PAYOUT) {
-    const maxRate = Math.ceil((1 - REGULATIONS.MAX_LT_TOTAL_PAYOUT / (REGULATIONS.MAX_LT_TOTAL_PAYOUT / (1 - R) * (1/avgChain))) * 100);
-    return {
-      rushProbability,
-      stCount,
-      ltEntryRate: 0,
-      avgChain,
-      avgPayoutPerChain: 0,
-      avgLtPayout: 0,
-      initialPayout,
-      roundDistribution: { rate3r: 1, rate10r: 0, rate16r: 0 },
-      error: `このスペックは総量規定により実現できません。LT中の期待出玉が9,600個を超えます。継続率を下げてください。`,
-      suggestion: `推奨：継続率を${Math.floor((1 - REGULATIONS.MAX_LT_TOTAL_PAYOUT / (avgPayoutPerChain * 100)) * 100)}%以下に`,
-    };
-  }
-
-  const roundDistribution = calcRoundDistribution(avgPayoutPerChain);
+  const ok = warnings.length === 0;
+  const entryChartTiers: PayoutTier[] = [
+    {
+      id: "entry-rush",
+      label: regulation.supportsLt && rushMode === "directLt" ? "LT突入" : "RUSH突入",
+      payout: input.initialPayout,
+      rate: round1(input.rushEntryRate),
+      bonusCount: 1,
+    },
+    {
+      id: "entry-normal",
+      label: "通常",
+      payout: input.initialPayout,
+      rate: round1(Math.max(0, 100 - input.rushEntryRate)),
+      bonusCount: 1,
+    },
+  ].filter((tier) => tier.rate > 0);
 
   return {
+    regulation,
     rushProbability,
     stCount,
-    ltEntryRate: Math.round(ltEntryRate * 100) / 100,
-    avgChain: Math.round(avgChain * 10) / 10,
-    avgPayoutPerChain: Math.round(avgPayoutPerChain),
+    ltStCount,
+    rushMode,
+    rushEntryRate: round2(rushEntryRate),
+    upperRushEntryRate: round2(upperRushEntryRate),
+    ltEntryRate: round2(ltEntryRate),
+    ltEntryRateWithinRush: round2(ltEntryRateWithinRush),
+    avgRushChain: round1(avgRushChain),
+    avgUpperRushChain: round1(avgUpperRushChain),
+    avgLtChain: round1(avgLtChain),
+    avgPayoutPerBonus: Math.round(avgPayoutPerBonus),
+    avgRushPayout: Math.round(avgRushPayout),
+    avgUpperRushPayout: Math.round(avgUpperRushPayout),
     avgLtPayout: Math.round(avgLtPayout),
-    initialPayout,
-    roundDistribution,
+    initialPayout: input.initialPayout,
+    avgTotalPayout: Math.round(avgTotalPayout),
+    payoutTiers: input.payoutTiers,
+    entryChartTiers,
+    check: {
+      ok,
+      warnings,
+      causes: Array.from(causes),
+      payoutTierTotalRate: tierRateTotal,
+      ltRatio: round2(ltRatio),
+      remainingLtPayout: Math.round(remainingLtPayout),
+      headroomBalls: Math.round(headroomBalls),
+    },
+    suggestions,
+    error: ok ? undefined : warnings[0],
   };
 }
 
-export interface BorderResult {
-  avgTotalPayoutBalls: number;  // 初当たり1回あたりの平均総獲得玉
-  borderSpins: number;          // ボーダー回転数 (回/1,000円)
+export function maximizeSpec(input: SpecInput): SpecInput {
+  const regulation = getRegulation(input);
+  const avgPayout = Math.max(1, getAveragePayout(input.payoutTiers));
+  const targetChain = regulation.supportsLt
+    ? futureHitAverage(input.ltContinuationRate)
+    : futureHitAverage(input.rushMode === "twoStage" ? input.upperRushContinuationRate : input.rushContinuationRate);
+  const targetAverage = Math.min(regulation.maxPayoutBundle, (regulation.maxLtTotalPayout ?? regulation.maxPayoutBundle) / Math.max(targetChain, 1));
+  const scale = Math.max(1, targetAverage / avgPayout);
+  const next: SpecInput = {
+    ...input,
+    rushContinuationRate: regulation.supportsLt ? input.rushContinuationRate : Math.min(input.rushContinuationRate, regulation.maxContinuationRate),
+    upperRushContinuationRate: Math.min(input.upperRushContinuationRate, regulation.maxContinuationRate),
+    initialPayout: Math.min(input.initialPayout, regulation.maxInitialPayout),
+  };
+
+  next.payoutTiers = input.payoutTiers.map((tier) => {
+    const payout = Math.min(regulation.maxPayoutBundle, Math.max(0, Math.round((tier.payout * scale) / 10) * 10));
+    const bonusCount = Math.max(1, Math.min(regulation.maxBonusCount, Math.ceil(payout / regulation.maxPayoutPerUnit)));
+    return { ...tier, payout, bonusCount };
+  });
+
+  return next;
 }
 
 export function calculateBorder(input: SpecInput, spec: SpecResult): BorderResult {
-  // 平均総獲得玉 = 初当たり出玉 + LT突入率 × LT平均出玉
-  const avgTotalPayoutBalls = spec.initialPayout + spec.ltEntryRate * spec.avgLtPayout;
-  // ボーダー = 250 ÷ (平均総獲得玉 ÷ 初当たり確率分母)
-  const borderSpins = 250 / (avgTotalPayoutBalls / input.hitProbability);
+  const avgTotalPayoutBalls = spec.avgTotalPayout;
+  const borderSpins = 250 / Math.max(avgTotalPayoutBalls / input.hitProbability, 0.01);
   return {
     avgTotalPayoutBalls: Math.round(avgTotalPayoutBalls),
-    borderSpins: Math.round(borderSpins * 10) / 10,
+    borderSpins: round1(borderSpins),
   };
 }
 
@@ -195,34 +414,14 @@ export function calcExpectedValue(params: {
   judgment: "plus" | "even" | "minus";
 } {
   const { borderSpins, userSpins, investmentYen, hitProbability, avgTotalPayoutBalls, exchangeYenPerBall, ballPriceYen } = params;
-
   const actualSpins = (investmentYen / 1000) * userSpins;
-  const spinsPerBall = 1000 / 250; // 4円等価の場合
   const expectedPayoutBalls = actualSpins * (avgTotalPayoutBalls / hitProbability);
   const investedBalls = investmentYen / ballPriceYen;
   const expectedDiffBalls = Math.round(expectedPayoutBalls - investedBalls);
   const expectedValueYen = Math.round(expectedDiffBalls * exchangeYenPerBall);
-
-  const spinDiff = Math.round((userSpins - borderSpins) * 10) / 10;
+  const spinDiff = round1(userSpins - borderSpins);
   const judgment: "plus" | "even" | "minus" =
     Math.abs(spinDiff) <= 0.5 ? "even" : spinDiff > 0 ? "plus" : "minus";
 
   return { expectedDiffBalls, expectedValueYen, spinDiff, judgment };
-}
-
-export function getMaxContinuationRate(
-  hitProbability: HitProbability,
-  calculationType: CalculationType
-): number {
-  for (let rate = 99; rate >= 50; rate--) {
-    const result = calculateSpec({
-      machineType: "e",
-      hitProbability,
-      continuationRate: rate,
-      calculationType,
-      name: "test",
-    });
-    if (!result.error) return rate;
-  }
-  return 50;
 }
