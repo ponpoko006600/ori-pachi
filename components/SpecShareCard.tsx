@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { calculateBorder, PayoutTier, SpecInput, SpecResult } from "@/lib/calculator";
 
 interface Props {
@@ -50,7 +50,15 @@ const THEMES = [
   },
 ];
 
-const PIE_COLORS = ["#008de8", "#ec002f", "#ff8a00", "#cf10d2", "#18b86e", "#ffd400"];
+const ENTRY_COLORS = ["#0095e8", "#f00035"];
+const RUSH_COLORS = {
+  blue: "#0095e8",
+  yellow: "#ffd400",
+  green: "#18c56e",
+  red: "#f00035",
+  orange: "#ff8a00",
+  purple: "#a855f7",
+};
 
 function hashText(text: string): number {
   return text.split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
@@ -109,6 +117,45 @@ function clipText(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
 
+function pickRushColors(tiers: PayoutTier[]): string[] {
+  if (tiers.length === 1) {
+    return tiers[0].payout === 0 ? [RUSH_COLORS.blue] : ["url(#rainbowSlice)"];
+  }
+
+  const hasReset = tiers.some((tier) => tier.payout === 0);
+  const paidTiers = tiers.filter((tier) => tier.payout > 0);
+  const paidColors = paidTiers.length === 1
+    ? [RUSH_COLORS.red]
+    : paidTiers.length === 2
+      ? [RUSH_COLORS.yellow, RUSH_COLORS.red]
+      : paidTiers.length === 3
+        ? [RUSH_COLORS.yellow, RUSH_COLORS.red, "url(#rainbowSlice)"]
+        : [RUSH_COLORS.yellow, RUSH_COLORS.green, RUSH_COLORS.red, "url(#rainbowSlice)"];
+
+  let paidIndex = 0;
+  return tiers.map((tier) => {
+    if (tier.payout === 0) return RUSH_COLORS.blue;
+    const color = paidColors[Math.min(paidIndex, paidColors.length - 1)];
+    paidIndex += 1;
+    return color;
+  }).map((color, index) => {
+    if (hasReset && tiers[index].payout === 0) return RUSH_COLORS.blue;
+    return color;
+  });
+}
+
+function pickEntryColors(tiers: PayoutTier[]): string[] {
+  return tiers.map((tier, index) => {
+    if (tier.label.includes("通常")) return ENTRY_COLORS[0];
+    if (tier.label.includes("時短")) return RUSH_COLORS.yellow;
+    if (tier.label.includes("RUSH") || tier.label.includes("LT")) return ENTRY_COLORS[1];
+    if (tiers.length <= 1) return ENTRY_COLORS[1];
+    if (index === 0) return ENTRY_COLORS[0];
+    if (index === tiers.length - 1) return ENTRY_COLORS[1];
+    return RUSH_COLORS.yellow;
+  });
+}
+
 function pieChartSvg(params: {
   title: string;
   tiers: PayoutTier[];
@@ -116,8 +163,10 @@ function pieChartSvg(params: {
   y: number;
   r: number;
   compact?: boolean;
+  variant: "entry" | "rush";
 }) {
   const tiers = sanitizeTiers(params.tiers);
+  const colors = params.variant === "entry" ? pickEntryColors(tiers) : pickRushColors(tiers);
   const total = Math.max(1, tiers.reduce((sum, tier) => sum + tier.rate, 0));
   let currentAngle = 0;
 
@@ -127,41 +176,46 @@ function pieChartSvg(params: {
     const end = currentAngle + angle;
     currentAngle = end;
     const mid = start + angle / 2;
-    const labelRadius = params.r * (angle < 32 ? 1.05 : 0.58);
+    const labelRadius = params.r * 0.58;
     const labelPoint = polarToCartesian(params.x, params.y, labelRadius, mid);
-    const label = escapeXml(tierLabel(tier));
     const rate = escapeXml(`${formatPercent(tier.rate)}`);
+    const fill = colors[index] ?? RUSH_COLORS.red;
 
     if (tier.rate >= 99.9) {
       return `
-        <circle cx="${params.x}" cy="${params.y}" r="${params.r}" fill="${PIE_COLORS[index % PIE_COLORS.length]}" stroke="#ffffff" stroke-width="4"/>
-        <text x="${params.x}" y="${params.y - 12}" text-anchor="middle" class="pieText">${label}</text>
-        <text x="${params.x}" y="${params.y + 46}" text-anchor="middle" class="pieRate">${rate}</text>
+        <circle cx="${params.x}" cy="${params.y}" r="${params.r}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
+        <text x="${params.x}" y="${params.y + 16}" text-anchor="middle" class="pieRate">${rate}</text>
       `;
     }
 
     return `
-      <path d="${describeArc(params.x, params.y, params.r, start, end)}" fill="${PIE_COLORS[index % PIE_COLORS.length]}" stroke="#ffffff" stroke-width="4"/>
+      <path d="${describeArc(params.x, params.y, params.r, start, end)}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
       ${
-        angle >= 18
-          ? `<text x="${labelPoint.x}" y="${labelPoint.y - 8}" text-anchor="middle" class="${params.compact ? "pieTextSmall" : "pieText"}">${label}</text>
-             <text x="${labelPoint.x}" y="${labelPoint.y + 34}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
+        angle >= 22
+          ? `<text x="${labelPoint.x}" y="${labelPoint.y + 16}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
           : ""
       }
     `;
   }).join("");
 
-  const legend = tiers.map((tier, index) => `
-    <g transform="translate(${params.x - params.r}, ${params.y + params.r + 30 + index * 30})">
-      <rect x="0" y="0" width="18" height="18" rx="5" fill="${PIE_COLORS[index % PIE_COLORS.length]}"/>
-      <text x="28" y="15" class="legendText">${escapeXml(tierLabel(tier))} / ${escapeXml(formatPercent(tier.rate))}</text>
+  const legend = tiers.map((tier, index) => {
+    const column = Math.floor(index / 3);
+    const row = index % 3;
+    const legendX = params.x - params.r - 44 + column * (params.r + 66);
+    const legendY = params.y + params.r + 28 + row * 28;
+    return `
+    <g transform="translate(${legendX}, ${legendY})">
+      <rect x="0" y="0" width="18" height="18" rx="5" fill="${colors[index] ?? RUSH_COLORS.red}"/>
+      <text x="28" y="15" class="legendText">${escapeXml(clipText(tierLabel(tier), 13))} / ${escapeXml(formatPercent(tier.rate))}</text>
     </g>
-  `).join("");
+  `;
+  }).join("");
 
   return `
     <g>
-      <rect x="${params.x - params.r - 34}" y="${params.y - params.r - 68}" width="${params.r * 2 + 68}" height="${params.r * 2 + 48}" rx="18" fill="rgba(255,255,255,0.08)" stroke="#e9c85d" stroke-width="3"/>
-      <text x="${params.x}" y="${params.y - params.r - 28}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
+      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 188}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
+      <rect x="${params.x - params.r - 52}" y="${params.y - params.r - 56}" width="${params.r * 2 + 104}" height="48" rx="12" fill="rgba(240,0,53,0.88)" stroke="#ffffff" stroke-width="2"/>
+      <text x="${params.x}" y="${params.y - params.r - 21}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
       ${slices}
       ${legend}
     </g>
@@ -169,17 +223,18 @@ function pieChartSvg(params: {
 }
 
 function statBox(label: string, value: string, x: number, y: number, width: number, height: number, accent: string) {
+  const fontSize = value.length >= 11 ? 44 : value.length >= 8 ? 50 : 58;
   return `
     <g>
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="14" fill="rgba(6,10,18,0.72)" stroke="${accent}" stroke-width="3"/>
-      <rect x="${x}" y="${y}" width="${width}" height="38" rx="14" fill="rgba(255,255,255,0.12)"/>
-      <text x="${x + width / 2}" y="${y + 27}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
-      <text x="${x + width / 2}" y="${y + 92}" text-anchor="middle" class="statValue">${escapeXml(value)}</text>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="10" fill="rgba(0,0,0,0.68)" stroke="${accent}" stroke-width="4"/>
+      <rect x="${x + 5}" y="${y + 5}" width="${width - 10}" height="38" rx="8" fill="rgba(255,255,255,0.16)"/>
+      <text x="${x + width / 2}" y="${y + 32}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
+      <text x="${x + width / 2}" y="${y + 92}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
     </g>
   `;
 }
 
-function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
+function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDataUrl?: string): string {
   const theme = THEMES[Math.abs(hashText(input.name)) % THEMES.length];
   const border = calculateBorder(input, result);
   const displayName = clipText(input.name || "オリジナルスペック", 20);
@@ -195,13 +250,29 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
 
   const charts = result.rushMode === "twoStage"
     ? `
-      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 310, y: 610, r: 128, compact: true })}
-      ${pieChartSvg({ title: `${lowerTitle}・割合`, tiers: result.payoutTiers, x: 660, y: 610, r: 128, compact: true })}
-      ${pieChartSvg({ title: `${upperTitle}・割合`, tiers: result.payoutTiers, x: 1010, y: 610, r: 128, compact: true })}
+      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 250, y: 638, r: 104, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: `${lowerTitle}・割合`, tiers: result.payoutTiers, x: 585, y: 638, r: 104, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}・割合`, tiers: result.payoutTiers, x: 920, y: 638, r: 104, compact: true, variant: "rush" })}
     `
     : `
-      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 390, y: 610, r: 142 })}
-      ${pieChartSvg({ title: "電チュー・割合", tiers: result.payoutTiers, x: 860, y: 610, r: 142 })}
+      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 320, y: 638, r: 122, variant: "entry" })}
+      ${pieChartSvg({ title: "電チュー・割合", tiers: result.payoutTiers, x: 820, y: 638, r: 122, variant: "rush" })}
+    `;
+  const machineVisual = machineImageDataUrl
+    ? `
+      <svg x="1230" y="122" width="326" height="704" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
+        <image href="${machineImageDataUrl}" x="0" y="0" width="1600" height="1200"/>
+      </svg>
+    `
+    : `
+      <rect x="1268" y="130" width="260" height="680" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
+      <rect x="1292" y="158" width="212" height="624" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+      <circle cx="1398" cy="464" r="188" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
+      <circle cx="1398" cy="464" r="130" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
+      <path d="M1398 286 L1446 418 L1586 418 L1472 500 L1518 632 L1398 552 L1278 632 L1324 500 L1210 418 L1350 418 Z" fill="${theme.gold}" opacity="0.78"/>
+      <circle cx="1398" cy="464" r="68" fill="#ffffff" opacity="0.92"/>
+      <text x="1398" y="455" text-anchor="middle" class="machineName">P</text>
+      <text x="1398" y="500" text-anchor="middle" class="machineName">${escapeXml(input.machineType === "e" ? "e" : "幻")}</text>
     `;
 
   return `
@@ -217,6 +288,19 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
       <stop offset="0.45" stop-color="${theme.main}" stop-opacity="0.72"/>
       <stop offset="1" stop-color="#000000" stop-opacity="0.25"/>
     </radialGradient>
+    <linearGradient id="goldLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff6b0"/>
+      <stop offset="0.45" stop-color="#f0b83a"/>
+      <stop offset="1" stop-color="#fff6b0"/>
+    </linearGradient>
+    <linearGradient id="rainbowSlice" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff004c"/>
+      <stop offset="0.24" stop-color="#ff8a00"/>
+      <stop offset="0.42" stop-color="#ffd400"/>
+      <stop offset="0.62" stop-color="#18c56e"/>
+      <stop offset="0.82" stop-color="#0095e8"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.65"/>
     </filter>
@@ -225,19 +309,17 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
       <feDropShadow dx="3" dy="3" stdDeviation="1" flood-color="#05101a" flood-opacity="0.9"/>
     </filter>
     <style>
-      .title { font: 900 72px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #061018; stroke-width: 8; paint-order: stroke; letter-spacing: 0; }
-      .subtitle { font: 800 24px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .88; }
-      .statLabel { font: 900 24px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; }
-      .statValue { font: 900 58px Georgia, "Times New Roman", serif; fill: #ffffff; filter: url(#textGlow); }
-      .chartTitle { font: 900 30px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 4; paint-order: stroke; }
-      .pieText { font: 900 28px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
-      .pieRate { font: 900 42px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
-      .pieTextSmall { font: 900 21px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 6; paint-order: stroke; }
-      .pieRateSmall { font: 900 32px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
-      .legendText { font: 800 18px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; }
-      .note { font: 700 20px "Hiragino Sans", "Yu Gothic", sans-serif; fill: rgba(255,255,255,.78); }
-      .brand { font: 900 30px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .88; }
-      .machineName { font: 900 42px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #061018; stroke-width: 7; paint-order: stroke; }
+      .title { font: 900 64px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 10; paint-order: stroke; letter-spacing: 0; filter: url(#textGlow); }
+      .subtitle { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .9; }
+      .statLabel { font: 900 23px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
+      .statValue { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 5; paint-order: stroke; filter: url(#textGlow); }
+      .chartTitle { font: 900 27px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
+      .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
+      .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
+      .legendText { font: 900 16px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 3; paint-order: stroke; }
+      .note { font: 800 18px "Hiragino Sans", "Yu Gothic", sans-serif; fill: rgba(255,255,255,.86); }
+      .brand { font: 900 36px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
+      .machineName { font: 900 35px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #061018; stroke-width: 7; paint-order: stroke; }
     </style>
   </defs>
 
@@ -250,43 +332,35 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
 
   <rect x="18" y="18" width="1564" height="864" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
   <rect x="34" y="34" width="1532" height="832" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
+  <rect x="50" y="142" width="1165" height="715" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
 
-  <text x="64" y="94" class="title">${escapeXml(displayName)}</text>
-  <text x="68" y="128" class="subtitle">ORIPACHI ORIGINAL SPEC SHOWCASE / ${escapeXml(theme.name)} MODEL</text>
-  <text x="1428" y="78" text-anchor="middle" class="brand">オリパチ</text>
+  <text x="64" y="92" class="title">${escapeXml(displayName)}</text>
+  <text x="68" y="126" class="subtitle">ORIPACHI ORIGINAL SPEC SHOWCASE / ${escapeXml(theme.name)} MODEL</text>
+  <text x="1414" y="88" text-anchor="middle" class="brand">オリパチ</text>
 
   <g filter="url(#shadow)">
-    ${statBox("大当り確率", `1/${input.hitProbability}`, 64, 158, 285, 124, theme.gold)}
-    ${statBox("RUSH突入率", `${input.rushEntryRate}%`, 365, 158, 285, 124, theme.hot)}
-    ${statBox("実質RUSH突入率", `約${effectiveEntry}%`, 666, 158, 285, 124, theme.sub)}
-    ${statBox(result.rushMode === "directLt" ? "LT継続率" : "RUSH継続率", `${rushContinuation}%`, 64, 300, 285, 124, theme.gold)}
-    ${statBox(showLt ? "LT継続率" : "継続率上限", `${showLt ? result.actualLtContinuationRate : result.regulation.maxContinuationRate}%`, 365, 300, 285, 124, theme.gold)}
-    ${statBox("初当り期待出玉", `約${formatBalls(border.avgTotalPayoutBalls)}`, 666, 300, 285, 124, theme.sub)}
-    ${statBox("右打ち中確率", `1/${result.rushProbability}`, 967, 158, 245, 124, theme.sub)}
-    ${statBox("ST/時短回数", `${stCount}回`, 967, 300, 245, 124, theme.gold)}
+    ${statBox("大当り確率", `1/${input.hitProbability}`, 76, 170, 268, 114, theme.gold)}
+    ${statBox("RUSH突入率", `${input.rushEntryRate}%`, 358, 170, 268, 114, theme.hot)}
+    ${statBox("実質RUSH突入率", `約${effectiveEntry}%`, 640, 170, 268, 114, theme.sub)}
+    ${statBox("右打ち中確率", `1/${result.rushProbability}`, 922, 170, 268, 114, theme.sub)}
+    ${statBox(result.rushMode === "directLt" ? "LT継続率" : "RUSH継続率", `${rushContinuation}%`, 76, 304, 268, 114, theme.gold)}
+    ${statBox(showLt ? "LT継続率" : "継続率上限", `${showLt ? result.actualLtContinuationRate : result.regulation.maxContinuationRate}%`, 358, 304, 268, 114, theme.gold)}
+    ${statBox("初当り期待出玉", `約${formatBalls(border.avgTotalPayoutBalls)}`, 640, 304, 268, 114, theme.sub)}
+    ${statBox("ST/時短回数", `${stCount}回`, 922, 304, 268, 114, theme.gold)}
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1268" y="130" width="260" height="680" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
-    <rect x="1292" y="158" width="212" height="624" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
-    <circle cx="1398" cy="464" r="188" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
-    <circle cx="1398" cy="464" r="130" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
-    <path d="M1398 286 L1446 418 L1586 418 L1472 500 L1518 632 L1398 552 L1278 632 L1324 500 L1210 418 L1350 418 Z" fill="${theme.gold}" opacity="0.78"/>
-    <circle cx="1398" cy="464" r="68" fill="#ffffff" opacity="0.92"/>
-    <text x="1398" y="455" text-anchor="middle" class="machineName">P</text>
-    <text x="1398" y="500" text-anchor="middle" class="machineName">${escapeXml(input.machineType === "e" ? "e" : "幻")}</text>
-    <text x="1398" y="728" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
-    <circle cx="1320" cy="206" r="20" fill="${theme.main}" stroke="#ffffff" stroke-width="3"/>
-    <circle cx="1476" cy="206" r="20" fill="${theme.hot}" stroke="#ffffff" stroke-width="3"/>
-    <circle cx="1320" cy="738" r="20" fill="${theme.hot}" stroke="#ffffff" stroke-width="3"/>
-    <circle cx="1476" cy="738" r="20" fill="${theme.main}" stroke="#ffffff" stroke-width="3"/>
+    <rect x="1218" y="118" width="350" height="720" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
+    ${machineVisual}
+    <rect x="1246" y="744" width="294" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
+    <text x="1393" y="787" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
   </g>
 
   <g filter="url(#shadow)">
     ${charts}
   </g>
 
-  <text x="64" y="852" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
+  <text x="70" y="875" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
 </svg>
   `.trim();
 }
@@ -294,8 +368,32 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult): string {
 export default function SpecShareCard({ input, result }: Props) {
   const [created, setCreated] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
-  const svg = useMemo(() => buildSpecShareSvg(input, result), [input, result]);
+  const [machineImageDataUrl, setMachineImageDataUrl] = useState<string>();
+  const svg = useMemo(() => buildSpecShareSvg(input, result, machineImageDataUrl), [input, machineImageDataUrl, result]);
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, [svg]);
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadMachineImage() {
+      try {
+        const response = await fetch("/assets/pachinko-free-machine.png");
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!ignore && typeof reader.result === "string") {
+            setMachineImageDataUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch {
+        if (!ignore) setMachineImageDataUrl(undefined);
+      }
+    }
+    loadMachineImage();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function saveImage() {
     setDownloadMessage("");
