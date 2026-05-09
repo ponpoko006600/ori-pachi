@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { calculateBorder, SpecInput, SpecResult } from "@/lib/calculator";
 import PayoutPieChart from "@/components/PayoutPieChart";
+import SpecShareCard from "@/components/SpecShareCard";
 
 interface Props {
   input: SpecInput;
@@ -132,6 +133,8 @@ export default function SpecResultCard({ input, result }: Props) {
             />
           )}
         </div>
+
+        <SpecShareCard input={input} result={result} />
 
         <div className="result-actions">
           <button onClick={handleSimulate} className="primary-action">

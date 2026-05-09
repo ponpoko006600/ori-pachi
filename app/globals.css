@@ -449,6 +449,90 @@ button:disabled {
   margin-top: 16px;
 }
 
+.share-card-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(255, 209, 72, 0.28);
+  border-radius: 8px;
+  margin-top: 18px;
+  padding: clamp(14px, 2.5vw, 20px);
+  background:
+    linear-gradient(135deg, rgba(255, 209, 72, 0.1), rgba(0, 212, 255, 0.06)),
+    rgba(255, 255, 255, 0.045);
+}
+
+.share-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.share-card-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.share-card-lead,
+.share-card-message {
+  margin: 0;
+  color: rgba(244, 247, 251, 0.72);
+  line-height: 1.7;
+}
+
+.share-card-preview {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.share-card-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.share-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.share-card-upgrades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px dashed rgba(255, 209, 72, 0.35);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 209, 72, 0.06);
+}
+
+.share-card-upgrades span {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.share-card-upgrades button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: rgba(244, 247, 251, 0.54);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.share-card-message {
+  color: var(--green);
+  font-weight: 800;
+}
+
 .preset-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1032,6 +1116,8 @@ button:disabled {
   .preset-actions,
   .create-actions,
   .result-actions,
+  .share-card-header,
+  .share-card-actions,
   .pie-chart-stack,
   .payout-legend {
     grid-template-columns: 1fr;
