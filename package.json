@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "publish": "bash scripts/publish.sh"
   },
   "dependencies": {
     "nanoid": "^5.1.11",

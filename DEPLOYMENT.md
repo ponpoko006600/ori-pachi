@@ -18,6 +18,15 @@ git commit -m "feat: prepare Oripachi for public launch"
 git push origin main
 ```
 
+今後の修正公開は、下の1コマンドでまとめて実行できます。
+
+```bash
+npm run publish -- "修正内容のメモ"
+```
+
+このコマンドで、チェック、ビルド、Git保存、GitHubへの送信までまとめて行います。
+GitHubに送信されると、Vercelが自動で公開サイトを更新します。
+
 ## 2. Vercelで無料公開
 
 1. https://vercel.com にアクセス
