@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { calculateBorder, PayoutTier, SpecInput, SpecResult } from "@/lib/calculator";
+import { PayoutTier, SpecInput, SpecResult } from "@/lib/calculator";
 
 interface Props {
   input: SpecInput;
@@ -82,8 +82,8 @@ function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
 }
 
 function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
-  const start = polarToCartesian(cx, cy, r, endAngle);
-  const end = polarToCartesian(cx, cy, r, startAngle);
+  const start = polarToCartesian(cx, cy, r, -startAngle);
+  const end = polarToCartesian(cx, cy, r, -endAngle);
   const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
   return [
     `M ${cx} ${cy}`,
@@ -102,10 +102,6 @@ function sanitizeTiers(tiers: PayoutTier[]): PayoutTier[] {
 
 function formatPercent(value: number): string {
   return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
-}
-
-function formatBalls(value: number): string {
-  return `${Math.round(value).toLocaleString()}発`;
 }
 
 function tierLabel(tier: PayoutTier): string {
@@ -213,7 +209,7 @@ function pieChartSvg(params: {
 
   return `
     <g>
-      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 188}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
+      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 150}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
       <rect x="${params.x - params.r - 52}" y="${params.y - params.r - 56}" width="${params.r * 2 + 104}" height="48" rx="12" fill="rgba(240,0,53,0.88)" stroke="#ffffff" stroke-width="2"/>
       <text x="${params.x}" y="${params.y - params.r - 21}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
       ${slices}
@@ -222,21 +218,33 @@ function pieChartSvg(params: {
   `;
 }
 
-function statBox(label: string, value: string, x: number, y: number, width: number, height: number, accent: string) {
-  const fontSize = value.length >= 11 ? 44 : value.length >= 8 ? 50 : 58;
+function heroStatBox(label: string, value: string, subLabel: string, x: number, y: number, width: number, height: number, accent: string) {
+  const fontSize = value.length >= 8 ? 76 : 88;
+  return `
+    <g>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="12" fill="rgba(0,0,0,0.76)" stroke="${accent}" stroke-width="5"/>
+      <rect x="${x + 7}" y="${y + 7}" width="${width - 14}" height="46" rx="8" fill="rgba(255,255,255,0.16)"/>
+      <text x="${x + width / 2}" y="${y + 40}" text-anchor="middle" class="statLabelLarge">${escapeXml(label)}</text>
+      <text x="${x + width / 2}" y="${y + 128}" text-anchor="middle" class="statValueHero" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      ${subLabel ? `<text x="${x + width / 2}" y="${y + height - 20}" text-anchor="middle" class="statSub">${escapeXml(subLabel)}</text>` : ""}
+    </g>
+  `;
+}
+
+function miniStatBox(label: string, value: string, x: number, y: number, width: number, height: number, accent: string) {
+  const fontSize = value.length >= 8 ? 43 : 50;
   return `
     <g>
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="10" fill="rgba(0,0,0,0.68)" stroke="${accent}" stroke-width="4"/>
       <rect x="${x + 5}" y="${y + 5}" width="${width - 10}" height="38" rx="8" fill="rgba(255,255,255,0.16)"/>
       <text x="${x + width / 2}" y="${y + 32}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
-      <text x="${x + width / 2}" y="${y + 92}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      <text x="${x + width / 2}" y="${y + 86}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
     </g>
   `;
 }
 
 function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDataUrl?: string): string {
   const theme = THEMES[Math.abs(hashText(input.name)) % THEMES.length];
-  const border = calculateBorder(input, result);
   const displayName = clipText(input.name || "オリジナルスペック", 20);
   const machineDisplayName = clipText(input.name || "オリパチ", 8);
   const effectiveEntry = Math.round(result.effectiveRushEntryRate * 100);
@@ -250,29 +258,29 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
 
   const charts = result.rushMode === "twoStage"
     ? `
-      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 250, y: 638, r: 104, compact: true, variant: "entry" })}
-      ${pieChartSvg({ title: `${lowerTitle}・割合`, tiers: result.payoutTiers, x: 585, y: 638, r: 104, compact: true, variant: "rush" })}
-      ${pieChartSvg({ title: `${upperTitle}・割合`, tiers: result.payoutTiers, x: 920, y: 638, r: 104, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 250, y: 648, r: 104, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 585, y: 648, r: 104, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 920, y: 648, r: 104, compact: true, variant: "rush" })}
     `
     : `
-      ${pieChartSvg({ title: "ヘソ・割合", tiers: result.entryChartTiers, x: 320, y: 638, r: 122, variant: "entry" })}
-      ${pieChartSvg({ title: "電チュー・割合", tiers: result.payoutTiers, x: 820, y: 638, r: 122, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 320, y: 635, r: 122, variant: "entry" })}
+      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 820, y: 635, r: 122, variant: "rush" })}
     `;
   const machineVisual = machineImageDataUrl
     ? `
-      <svg x="1230" y="122" width="326" height="704" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
+      <svg x="1132" y="186" width="396" height="548" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
         <image href="${machineImageDataUrl}" x="0" y="0" width="1600" height="1200"/>
       </svg>
     `
     : `
-      <rect x="1268" y="130" width="260" height="680" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
-      <rect x="1292" y="158" width="212" height="624" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
-      <circle cx="1398" cy="464" r="188" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
-      <circle cx="1398" cy="464" r="130" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
-      <path d="M1398 286 L1446 418 L1586 418 L1472 500 L1518 632 L1398 552 L1278 632 L1324 500 L1210 418 L1350 418 Z" fill="${theme.gold}" opacity="0.78"/>
-      <circle cx="1398" cy="464" r="68" fill="#ffffff" opacity="0.92"/>
-      <text x="1398" y="455" text-anchor="middle" class="machineName">P</text>
-      <text x="1398" y="500" text-anchor="middle" class="machineName">${escapeXml(input.machineType === "e" ? "e" : "幻")}</text>
+      <rect x="1182" y="188" width="296" height="540" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
+      <rect x="1210" y="220" width="240" height="476" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+      <circle cx="1330" cy="458" r="168" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
+      <circle cx="1330" cy="458" r="110" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
+      <path d="M1330 300 L1370 420 L1492 420 L1392 490 L1430 610 L1330 538 L1230 610 L1268 490 L1168 420 L1290 420 Z" fill="${theme.gold}" opacity="0.78"/>
+      <circle cx="1330" cy="458" r="60" fill="#ffffff" opacity="0.92"/>
+      <text x="1330" y="450" text-anchor="middle" class="machineName">P</text>
+      <text x="1330" y="492" text-anchor="middle" class="machineName">${escapeXml(input.machineType === "e" ? "e" : "幻")}</text>
     `;
 
   return `
@@ -312,7 +320,10 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
       .title { font: 900 64px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 10; paint-order: stroke; letter-spacing: 0; filter: url(#textGlow); }
       .subtitle { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .9; }
       .statLabel { font: 900 23px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
+      .statLabelLarge { font: 900 26px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 5; paint-order: stroke; }
       .statValue { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 5; paint-order: stroke; filter: url(#textGlow); }
+      .statValueHero { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 7; paint-order: stroke; filter: url(#textGlow); }
+      .statSub { font: 900 24px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
       .chartTitle { font: 900 27px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
       .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
       .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
@@ -332,28 +343,25 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
 
   <rect x="18" y="18" width="1564" height="864" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
   <rect x="34" y="34" width="1532" height="832" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
-  <rect x="50" y="142" width="1165" height="715" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
+  <rect x="50" y="142" width="1015" height="715" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
 
   <text x="64" y="92" class="title">${escapeXml(displayName)}</text>
   <text x="68" y="126" class="subtitle">ORIPACHI ORIGINAL SPEC SHOWCASE / ${escapeXml(theme.name)} MODEL</text>
   <text x="1414" y="88" text-anchor="middle" class="brand">オリパチ</text>
 
   <g filter="url(#shadow)">
-    ${statBox("大当り確率", `1/${input.hitProbability}`, 76, 170, 268, 114, theme.gold)}
-    ${statBox("RUSH突入率", `${input.rushEntryRate}%`, 358, 170, 268, 114, theme.hot)}
-    ${statBox("実質RUSH突入率", `約${effectiveEntry}%`, 640, 170, 268, 114, theme.sub)}
-    ${statBox("右打ち中確率", `1/${result.rushProbability}`, 922, 170, 268, 114, theme.sub)}
-    ${statBox(result.rushMode === "directLt" ? "LT継続率" : "RUSH継続率", `${rushContinuation}%`, 76, 304, 268, 114, theme.gold)}
-    ${statBox(showLt ? "LT継続率" : "継続率上限", `${showLt ? result.actualLtContinuationRate : result.regulation.maxContinuationRate}%`, 358, 304, 268, 114, theme.gold)}
-    ${statBox("初当り期待出玉", `約${formatBalls(border.avgTotalPayoutBalls)}`, 640, 304, 268, 114, theme.sub)}
-    ${statBox("ST/時短回数", `${stCount}回`, 922, 304, 268, 114, theme.gold)}
+    ${heroStatBox("大当り確率", `1/${input.hitProbability}`, "", 76, 168, 300, 178, theme.gold)}
+    ${heroStatBox("RUSH突入率", `${input.rushEntryRate}%`, `実質RUSH突入率 約${effectiveEntry}%`, 392, 168, 300, 178, theme.hot)}
+    ${heroStatBox("RUSH継続率", `${rushContinuation}%`, "", 708, 168, 300, 178, theme.gold)}
+    ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 180, 374, 330, 104, theme.sub)}
+    ${miniStatBox("ST/時短回数", `${stCount}回`, 574, 374, 330, 104, theme.gold)}
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1218" y="118" width="350" height="720" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
+    <rect x="1108" y="142" width="444" height="715" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
     ${machineVisual}
-    <rect x="1246" y="744" width="294" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
-    <text x="1393" y="787" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
+    <rect x="1160" y="754" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
+    <text x="1330" y="797" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
   </g>
 
   <g filter="url(#shadow)">
