@@ -22,6 +22,11 @@ const RUSH_MODE_LABEL = {
 export default function SpecResultCard({ input, result }: Props) {
   const router = useRouter();
   const border = calculateBorder(input, result);
+  const lowerRushStLabel = `ST${result.stCount}回転`;
+  const upperRushStCount = result.regulation.supportsLt
+    ? result.ltStCount
+    : input.upperRushStSpins || result.stCount;
+  const upperRushStLabel = `ST${upperRushStCount}回転`;
 
   function handleSimulate() {
     router.push(`/simulate?spec=${encodeSpec(input)}`);
@@ -115,10 +120,17 @@ export default function SpecResultCard({ input, result }: Props) {
             stLabel="初当たり"
           />
           <PayoutPieChart
-            title="電チュー・割合"
+            title={result.rushMode === "twoStage" ? "下位RUSH・割合" : "電チュー・割合"}
             tiers={result.payoutTiers}
-            stLabel={`ST${result.regulation.supportsLt ? result.ltStCount : result.stCount}回転`}
+            stLabel={result.rushMode === "twoStage" ? lowerRushStLabel : `ST${result.regulation.supportsLt ? result.ltStCount : result.stCount}回転`}
           />
+          {result.rushMode === "twoStage" && (
+            <PayoutPieChart
+              title={result.regulation.supportsLt ? "上位/LT・割合" : "上位RUSH・割合"}
+              tiers={result.payoutTiers}
+              stLabel={upperRushStLabel}
+            />
+          )}
         </div>
 
         <div className="result-actions">
