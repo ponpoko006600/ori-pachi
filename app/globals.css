@@ -322,6 +322,70 @@ button:disabled {
   color: white;
 }
 
+.slider-value-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 34px;
+  max-width: min(100%, 260px);
+  border: 1px solid rgba(0, 212, 255, 0.42);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: white;
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.slider-value-control.warn {
+  border-color: rgba(255, 72, 96, 0.7);
+  background: rgba(255, 72, 96, 0.12);
+}
+
+.slider-value-control:focus-within {
+  border-color: rgba(255, 209, 72, 0.9);
+  box-shadow: 0 0 0 3px rgba(255, 209, 72, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.slider-value-control input {
+  min-width: 3ch;
+  max-width: 12ch;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+
+.slider-value-control input::-webkit-outer-spin-button,
+.slider-value-control input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.slider-value-control span {
+  color: inherit;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.slider-value-control small {
+  max-width: 110px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spec-slider {
   width: 100%;
   height: 30px;

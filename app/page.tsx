@@ -168,6 +168,12 @@ export default function Home() {
     setCreatedInput(null);
   }
 
+  function closestHitProbability(value: number): HitProbability {
+    return HIT_PROBS.reduce((closest, current) => (
+      Math.abs(current - value) < Math.abs(closest - value) ? current : closest
+    ), HIT_PROBS[0]);
+  }
+
   return (
     <main className="min-h-screen app-bg">
       <SiteHeader />
@@ -251,18 +257,25 @@ export default function Home() {
             <SliderControl
               label="初当たり確率"
               valueLabel={`1/${input.hitProbability}`}
+              inputPrefix="1/"
+              inputValue={input.hitProbability}
+              inputMin={HIT_PROBS[0]}
+              inputMax={HIT_PROBS[HIT_PROBS.length - 1]}
+              inputStep={1}
               min={0}
               max={HIT_PROBS.length - 1}
               step={1}
               value={hitProbIndex}
               ok
               onChange={(value) => patchInput({ hitProbability: HIT_PROBS[value] as HitProbability })}
+              onInputChange={(value) => patchInput({ hitProbability: closestHitProbability(value) })}
               markers={HIT_PROBS.map((prob) => `1/${prob}`)}
             />
 
             <SliderControl
               label="Rush突入率"
               valueLabel={`${input.rushEntryRate}%`}
+              inputSuffix="%"
               min={0}
               max={100}
               step={1}
@@ -284,6 +297,7 @@ export default function Home() {
               <SliderControl
                 label="非突入時の時短回数"
                 valueLabel={`${input.nonRushTimeShort.spins}回転`}
+                inputSuffix="回転"
                 min={1}
                 max={300}
                 step={1}
@@ -331,6 +345,7 @@ export default function Home() {
               <SliderControl
                 label="右打ち中確率"
                 valueLabel={`1/${input.rightHitProbability}`}
+                inputPrefix="1/"
                 min={1}
                 max={399}
                 step={1}
@@ -344,6 +359,8 @@ export default function Home() {
               <SliderControl
                 label={input.rushMode === "twoStage" ? "下位Rush ST回数" : "Rush ST回数"}
                 valueLabel={`${input.rushStSpins}回 / 約${result.actualRushContinuationRate}%`}
+                inputSuffix="回"
+                inputNote={`約${result.actualRushContinuationRate}%`}
                 min={1}
                 max={250}
                 step={1}
@@ -357,6 +374,7 @@ export default function Home() {
               <SliderControl
                 label={input.rushMode === "twoStage" ? "下位Rush継続率" : "Rush継続率"}
                 valueLabel={`${input.rushContinuationRate}%`}
+                inputSuffix="%"
                 min={1}
                 max={99}
                 step={1}
@@ -371,6 +389,7 @@ export default function Home() {
               <SliderControl
                 label={regulation.supportsLt ? "上位/LT突入率" : "上位Rush突入率"}
                 valueLabel={`${input.upperRushEntryRate}%`}
+                inputSuffix="%"
                 min={0}
                 max={100}
                 step={1}
@@ -384,6 +403,8 @@ export default function Home() {
               <SliderControl
                 label={regulation.supportsLt ? "上位/LT ST回数" : "上位Rush ST回数"}
                 valueLabel={`${input.upperRushStSpins}回 / 約${result.actualUpperRushContinuationRate}%`}
+                inputSuffix="回"
+                inputNote={`約${result.actualUpperRushContinuationRate}%`}
                 min={1}
                 max={250}
                 step={1}
@@ -397,6 +418,7 @@ export default function Home() {
               <SliderControl
                 label="上位Rush継続率"
                 valueLabel={`${input.upperRushContinuationRate}%`}
+                inputSuffix="%"
                 min={1}
                 max={99}
                 step={1}
@@ -411,6 +433,8 @@ export default function Home() {
               <SliderControl
                 label="LT ST回数"
                 valueLabel={`${input.ltStSpins}回 / 約${result.actualLtContinuationRate}%`}
+                inputSuffix="回"
+                inputNote={`約${result.actualLtContinuationRate}%`}
                 min={1}
                 max={250}
                 step={1}
@@ -425,6 +449,7 @@ export default function Home() {
               <SliderControl
                 label="LT継続率"
                 valueLabel={`${input.ltContinuationRate}%`}
+                inputSuffix="%"
                 min={50}
                 max={99}
                 step={1}
@@ -438,6 +463,7 @@ export default function Home() {
             <SliderControl
               label="初当たり出玉"
               valueLabel={`${input.initialPayout.toLocaleString()}発`}
+              inputSuffix="発"
               min={0}
               max={regulation.maxInitialPayout}
               step={10}
@@ -464,6 +490,7 @@ export default function Home() {
                   <SliderControl
                     label="出玉数"
                     valueLabel={`${tier.payout.toLocaleString()}発`}
+                    inputSuffix="発"
                     min={0}
                     max={maxTierPayout}
                     step={10}
@@ -474,6 +501,7 @@ export default function Home() {
                   <SliderControl
                     label="内部当たり回数"
                     valueLabel={`${tier.bonusCount}回`}
+                    inputSuffix="回"
                     min={1}
                     max={regulation.maxBonusCount}
                     step={1}
@@ -485,6 +513,7 @@ export default function Home() {
                   <SliderControl
                     label="割合"
                     valueLabel={`${tier.rate}%`}
+                    inputSuffix="%"
                     min={0}
                     max={100}
                     step={0.5}
@@ -520,6 +549,7 @@ export default function Home() {
                 <SliderControl
                   label="発動までの回転数"
                   valueLabel={`${input.yutime.triggerSpins}回転`}
+                  inputSuffix="回転"
                   min={100}
                   max={1500}
                   step={1}
@@ -530,6 +560,7 @@ export default function Home() {
                 <SliderControl
                   label="時短回転数"
                   valueLabel={`${input.yutime.supportSpins}回転`}
+                  inputSuffix="回転"
                   min={1}
                   max={1500}
                   step={1}
@@ -558,6 +589,7 @@ export default function Home() {
                   <SliderControl
                     label="高確率分母"
                     valueLabel={`1/${input.yutime.highProbability}`}
+                    inputPrefix="1/"
                     min={10}
                     max={199}
                     step={1}
@@ -638,31 +670,80 @@ function getRushModeOptions(regulationType: RegulationType): Array<{ value: Rush
 function SliderControl({
   label,
   valueLabel,
+  inputPrefix,
+  inputSuffix,
+  inputValue,
+  inputMin,
+  inputMax,
+  inputStep,
+  inputNote,
   min,
   max,
   step,
   value,
   ok,
   onChange,
+  onInputChange,
   hint,
   markers,
 }: {
   label: string;
   valueLabel: string;
+  inputPrefix?: string;
+  inputSuffix?: string;
+  inputValue?: number;
+  inputMin?: number;
+  inputMax?: number;
+  inputStep?: number;
+  inputNote?: string;
   min: number;
   max: number;
   step: number;
   value: number;
   ok: boolean;
   onChange: (value: number) => void;
+  onInputChange?: (value: number) => void;
   hint?: string;
   markers?: string[];
 }) {
+  const numericValue = inputValue ?? value;
+  const numericMin = inputMin ?? min;
+  const numericMax = inputMax ?? max;
+  const numericStep = inputStep ?? step;
+  const inputWidth = Math.max(3, String(numericValue).replace(".", "").length + 1);
+
+  function commitInput(rawValue: string) {
+    if (rawValue.trim() === "") return;
+
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+
+    const nextValue = normalizeSliderNumber(parsed, numericMin, numericMax, numericStep);
+    (onInputChange ?? onChange)(nextValue);
+  }
+
   return (
     <div className="slider-field">
       <div className="slider-label-row">
         <label>{label}</label>
-        <strong>{valueLabel}</strong>
+        <div className={ok ? "slider-value-control" : "slider-value-control warn"} aria-label={`${label}を直接入力`}>
+          {inputPrefix && <span>{inputPrefix}</span>}
+          <input
+            type="number"
+            inputMode={numericStep % 1 === 0 ? "numeric" : "decimal"}
+            min={numericMin}
+            max={numericMax}
+            step={numericStep}
+            value={numericValue}
+            style={{ width: `${inputWidth}ch` }}
+            aria-label={`${label}の数値`}
+            title={`${label}: ${valueLabel}`}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => commitInput(event.target.value)}
+          />
+          {inputSuffix && <span>{inputSuffix}</span>}
+          {inputNote && <small>{inputNote}</small>}
+        </div>
       </div>
       <input
         type="range"
@@ -684,6 +765,14 @@ function SliderControl({
       </div>
     </div>
   );
+}
+
+function normalizeSliderNumber(value: number, min: number, max: number, step: number) {
+  const clamped = Math.min(max, Math.max(min, value));
+  const decimals = Math.max(0, `${step}`.split(".")[1]?.length ?? 0);
+  const aligned = Math.round((clamped - min) / step) * step + min;
+
+  return Number(aligned.toFixed(decimals));
 }
 
 function PreviewStat({ label, value }: { label: string; value: string }) {
