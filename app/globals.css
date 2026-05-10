@@ -1077,12 +1077,73 @@ button:disabled {
 }
 
 @media (max-width: 880px) {
+  .builder-shell {
+    padding-bottom: calc(178px + env(safe-area-inset-bottom));
+  }
+
+  .result-section {
+    padding-bottom: calc(178px + env(safe-area-inset-bottom));
+  }
+
   .builder-grid {
     grid-template-columns: 1fr;
   }
 
   .preview-panel {
-    position: static;
+    position: fixed;
+    z-index: 30;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 12px;
+    max-height: min(28vh, 168px);
+    overflow: auto;
+    padding: 8px 10px;
+    border-color: rgba(255, 209, 72, 0.38);
+    background: rgba(12, 16, 26, 0.94);
+    box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.42), 0 0 24px rgba(0, 212, 255, 0.12);
+    backdrop-filter: blur(18px);
+    overscroll-behavior: contain;
+  }
+
+  .preview-panel .panel-title {
+    margin: 0 0 6px;
+  }
+
+  .preview-panel .panel-title h2 {
+    font-size: 12px;
+  }
+
+  .preview-panel .meter-card {
+    gap: 2px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+  }
+
+  .preview-panel .meter-card strong {
+    font-size: 13px;
+  }
+
+  .preview-panel .meter-card span,
+  .preview-panel .suggestion-box {
+    display: none;
+  }
+
+  .preview-panel .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .preview-panel .stat-item {
+    padding: 6px 7px;
+  }
+
+  .preview-panel .stat-label {
+    margin-bottom: 2px;
+    font-size: 9px;
+  }
+
+  .preview-panel .stat-value {
+    font-size: 11px;
   }
 
   .app-header {
@@ -1123,6 +1184,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .preview-panel .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .result-header {
     align-items: flex-start;
     flex-direction: column;
@@ -1144,5 +1209,23 @@ button:disabled {
   .step-list div,
   .roadmap-list article {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .builder-shell {
+    padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  }
+
+  .result-section {
+    padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  }
+
+  .preview-panel {
+    max-height: min(32vh, 180px);
+  }
+
+  .preview-panel .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

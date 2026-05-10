@@ -577,7 +577,7 @@ export default function Home() {
             </div>
           </section>
 
-          <aside className="preview-panel">
+          <aside className="preview-panel" aria-live="polite">
             <PanelTitle label="リアルタイム判定" />
             <div className={result.check.ok ? "meter-card ok" : "meter-card warn"}>
               <strong>{result.check.ok ? "規制内で作成できます" : "調整が必要です"}</strong>
