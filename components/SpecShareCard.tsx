@@ -9,7 +9,7 @@ interface Props {
 }
 
 const CANVAS_WIDTH = 1600;
-const CANVAS_HEIGHT = 900;
+const CANVAS_HEIGHT = 1200;
 const EXPORT_SCALE = 2;
 
 const THEMES = [
@@ -124,6 +124,12 @@ function clipText(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
 
+function titleFontSize(text: string): number {
+  if (text.length >= 18) return 44;
+  if (text.length >= 14) return 52;
+  return 64;
+}
+
 function pickRushColors(tiers: PayoutTier[]): string[] {
   if (tiers.length === 1) {
     return tiers[0].payout === 0 ? [RUSH_COLORS.blue] : ["url(#rainbowSlice)"];
@@ -183,8 +189,12 @@ function pieChartSvg(params: {
     const end = currentAngle + angle;
     currentAngle = end;
     const mid = start + angle / 2;
-    const labelRadius = params.r * 0.58;
-    const labelPoint = polarToCartesian(params.x, params.y, labelRadius, mid);
+    const entryFixedX = tier.label.includes("通常") ? params.x - params.r * 0.5 : params.x + params.r * 0.5;
+    const entryFixedY = params.y + 14;
+    const labelRadius = params.r * 0.54;
+    const labelPoint = params.variant === "entry"
+      ? { x: entryFixedX, y: entryFixedY }
+      : polarToCartesian(params.x, params.y, labelRadius, mid);
     const rate = escapeXml(`${formatPercent(tier.rate)}`);
     const fill = colors[index] ?? RUSH_COLORS.red;
 
@@ -220,7 +230,7 @@ function pieChartSvg(params: {
 
   return `
     <g>
-      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 150}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
+      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 202}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
       <rect x="${params.x - params.r - 52}" y="${params.y - params.r - 56}" width="${params.r * 2 + 104}" height="48" rx="12" fill="rgba(240,0,53,0.88)" stroke="#ffffff" stroke-width="2"/>
       <text x="${params.x}" y="${params.y - params.r - 21}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
       ${slices}
@@ -231,13 +241,13 @@ function pieChartSvg(params: {
 
 function majorSpecRow(label: string, value: string, x: number, y: number, width: number, height: number, accent: string, subValue = "") {
   const labelWidth = 250;
-  const fontSize = subValue ? 48 : value.length >= 8 ? 52 : 62;
+  const fontSize = subValue ? 36 : value.length >= 8 ? 52 : 62;
   return `
     <g>
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(255,246,210,0.9)" stroke="${accent}" stroke-width="3"/>
       <rect x="${x}" y="${y}" width="${labelWidth}" height="${height}" rx="6" fill="rgba(14,8,28,0.92)" stroke="${accent}" stroke-width="3"/>
       <text x="${x + labelWidth / 2}" y="${y + height / 2 + 10}" text-anchor="middle" class="tableLabel">${escapeXml(label)}</text>
-      <text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + (subValue ? 43 : height / 2 + 20)}" text-anchor="middle" class="tableValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      <text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + (subValue ? 35 : height / 2 + 20)}" text-anchor="middle" class="tableValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
       ${subValue ? `<text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + height - 9}" text-anchor="middle" class="tableSub">${escapeXml(subValue)}</text>` : ""}
     </g>
   `;
@@ -257,8 +267,9 @@ function miniStatBox(label: string, value: string, x: number, y: number, width: 
 
 function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDataUrl?: string): string {
   const theme = THEMES[Math.abs(hashText(input.name)) % THEMES.length];
-  const displayName = clipText(input.name || "オリジナルスペック", 20);
+  const displayName = clipText(input.name || "オリジナルスペック", 22);
   const machineDisplayName = clipText(input.name || "オリパチ", 8);
+  const headingSize = titleFontSize(displayName);
   const effectiveEntry = Math.round(result.effectiveRushEntryRate * 100);
   const rushContinuation = result.rushMode === "directLt"
     ? result.actualLtContinuationRate
@@ -270,24 +281,24 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
 
   const charts = result.rushMode === "twoStage"
     ? `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 670, r: 90, compact: true, variant: "entry" })}
-      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 520, y: 670, r: 90, compact: true, variant: "rush" })}
-      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 820, y: 670, r: 90, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 790, r: 108, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 540, y: 790, r: 108, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 860, y: 790, r: 108, compact: true, variant: "rush" })}
     `
     : `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 280, y: 660, r: 102, variant: "entry" })}
-      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 740, y: 660, r: 102, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 300, y: 790, r: 136, variant: "entry" })}
+      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 780, y: 790, r: 136, variant: "rush" })}
     `;
   const machineVisual = machineImageDataUrl
     ? `
-      <svg x="1138" y="236" width="372" height="470" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
+      <svg x="1138" y="254" width="372" height="620" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
         <image href="${machineImageDataUrl}" x="0" y="0" width="1600" height="1200"/>
       </svg>
     `
     : `
-      <rect x="1182" y="238" width="296" height="470" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
-      <rect x="1210" y="270" width="240" height="406" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
-      <circle cx="1330" cy="472" r="150" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
+      <rect x="1182" y="254" width="296" height="620" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
+      <rect x="1210" y="286" width="240" height="556" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+      <circle cx="1330" cy="560" r="150" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
       <circle cx="1330" cy="458" r="110" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
       <path d="M1330 300 L1370 420 L1492 420 L1392 490 L1430 610 L1330 538 L1230 610 L1268 490 L1168 420 L1290 420 Z" fill="${theme.gold}" opacity="0.78"/>
       <circle cx="1330" cy="458" r="60" fill="#ffffff" opacity="0.92"/>
@@ -346,18 +357,18 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
     </style>
   </defs>
 
-  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="1200" fill="url(#bg)"/>
   <g opacity="0.35">
     <circle cx="210" cy="130" r="290" fill="${theme.main}"/>
     <circle cx="1160" cy="730" r="360" fill="${theme.sub}"/>
-    <path d="M0 710 C300 590 480 920 780 760 C1060 610 1230 420 1600 500 L1600 900 L0 900 Z" fill="#ffffff" opacity="0.06"/>
+    <path d="M0 930 C300 780 480 1150 780 960 C1060 780 1230 590 1600 710 L1600 1200 L0 1200 Z" fill="#ffffff" opacity="0.06"/>
   </g>
 
-  <rect x="18" y="18" width="1564" height="864" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
-  <rect x="34" y="34" width="1532" height="832" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
-  <rect x="50" y="142" width="1015" height="715" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
+  <rect x="18" y="18" width="1564" height="1164" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
+  <rect x="34" y="34" width="1532" height="1132" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
+  <rect x="50" y="142" width="1015" height="995" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
 
-  <text x="64" y="92" class="title">${escapeXml(displayName)}</text>
+  <text x="64" y="92" class="title" style="font-size:${headingSize}px">${escapeXml(displayName)}</text>
   <text x="68" y="126" class="subtitle">ORIPACHI ORIGINAL SPEC SHOWCASE / ${escapeXml(theme.name)} MODEL</text>
   <text x="1414" y="88" text-anchor="middle" class="brand">オリパチ</text>
 
@@ -372,17 +383,17 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1108" y="142" width="444" height="715" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
+    <rect x="1108" y="142" width="444" height="995" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
     ${machineVisual}
-    <rect x="1160" y="756" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
-    <text x="1330" y="799" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
+    <rect x="1160" y="1010" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
+    <text x="1330" y="1053" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
   </g>
 
   <g filter="url(#shadow)">
     ${charts}
   </g>
 
-  <text x="70" y="875" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
+  <text x="70" y="1146" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
 </svg>
   `.trim();
 }

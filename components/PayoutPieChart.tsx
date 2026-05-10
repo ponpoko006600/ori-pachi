@@ -89,9 +89,15 @@ export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
             const mid = start + (end - start) / 2;
             const isSmall = tier.rate < 12;
             const radius = isSmall ? 132 : tier.rate > 45 ? 66 : 92;
-            const label = polarToCartesian(210, 210, radius, mid);
+            const label = isEntryChart
+              ? {
+                  x: tier.label.includes("通常") ? 135 : 285,
+                  y: 214,
+                }
+              : polarToCartesian(210, 210, radius, mid);
             const marker = polarToCartesian(210, 210, 142, mid);
-            const fontSize = tier.rate > 45 ? 25 : tier.rate > 24 ? 22 : 18;
+            const fontSize = isEntryChart ? 22 : tier.rate > 45 ? 25 : tier.rate > 24 ? 22 : 18;
+            const labelFill = isEntryChart && !tier.label.includes("通常") ? "#111827" : color;
 
             if (isSmall) {
               return (
@@ -106,17 +112,17 @@ export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
 
             return (
               <g key={`${tier.id}-label`}>
-                <text x={label.x} y={label.y - 24} textAnchor="middle" className="pie-label" style={{ fontSize }} fill={color}>
+                <text x={label.x} y={label.y - 24} textAnchor="middle" className="pie-label" style={{ fontSize }} fill={labelFill}>
                   {tier.label}
                 </text>
-                <text x={label.x} y={label.y + 2} textAnchor="middle" className="pie-label sub" style={{ fontSize: fontSize - 5 }} fill={color}>
+                <text x={label.x} y={label.y + 2} textAnchor="middle" className="pie-label sub" style={{ fontSize: fontSize - 5 }} fill={labelFill}>
                   {formatPayout(tier)}
                 </text>
                 <rect x={label.x - 50} y={label.y + 14} width="100" height="24" rx="4" fill="black" />
                 <text x={label.x} y={label.y + 32} textAnchor="middle" className="pie-badge" style={{ fontSize: 15 }}>
                   {stLabel}
                 </text>
-                <text x={label.x} y={label.y + 60} textAnchor="middle" className="pie-label rate" style={{ fontSize: fontSize + 2 }} fill={color}>
+                <text x={label.x} y={label.y + 60} textAnchor="middle" className="pie-label rate" style={{ fontSize: fontSize + 2 }} fill={labelFill}>
                   ...約{tier.rate}%
                 </text>
               </g>
