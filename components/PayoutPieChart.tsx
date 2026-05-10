@@ -9,6 +9,11 @@ interface Props {
 }
 
 const COLORS = ["#0718f4", "#ff9800", "#e000b8", "#ff1515", "#ffc20a", "#6d28d9"];
+const ENTRY_COLORS = {
+  normal: "#0718f4",
+  entry: "#ffc20a",
+  other: "#ff9800",
+};
 
 function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
   const rad = ((angle - 90) * Math.PI) / 180;
@@ -37,13 +42,30 @@ function formatPayout(tier: PayoutTier) {
 }
 
 export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
+  const isEntryChart = title.includes("ヘソ") || title.includes("通常時");
   const normalized = tiers
     .filter((tier) => tier.rate > 0)
-    .sort((a, b) => a.payout - b.payout || a.rate - b.rate);
+    .sort((a, b) => {
+      if (isEntryChart) {
+        const score = (tier: PayoutTier) => {
+          if (tier.label.includes("通常")) return 0;
+          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 1;
+          return 2;
+        };
+        return score(a) - score(b);
+      }
+      return a.payout - b.payout || a.rate - b.rate;
+    });
+  const colorForTier = (tier: PayoutTier, index: number) => {
+    if (!isEntryChart) return COLORS[index % COLORS.length];
+    if (tier.label.includes("通常")) return ENTRY_COLORS.normal;
+    if (tier.label.includes("RUSH") || tier.label.includes("LT")) return ENTRY_COLORS.entry;
+    return ENTRY_COLORS.other;
+  };
   const slices = normalized.reduce<Array<{ tier: PayoutTier; start: number; end: number; color: string }>>((items, tier, index) => {
     const previousEnd = items[index - 1]?.end ?? 0;
     const end = previousEnd - (tier.rate / 100) * 360;
-    return [...items, { tier, start: previousEnd, end, color: COLORS[index % COLORS.length] }];
+    return [...items, { tier, start: previousEnd, end, color: colorForTier(tier, index) }];
   }, []);
 
   return (
@@ -104,7 +126,7 @@ export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
         <div className="payout-legend">
           {normalized.map((tier, index) => (
             <div key={`${tier.id}-legend`} className="payout-legend-item">
-              <span className="legend-index" style={{ borderColor: COLORS[index % COLORS.length], color: COLORS[index % COLORS.length] }}>
+              <span className="legend-index" style={{ borderColor: colorForTier(tier, index), color: colorForTier(tier, index) }}>
                 {index + 1}
               </span>
               <strong>{tier.label}</strong>

@@ -10,6 +10,7 @@ interface Props {
 
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 900;
+const EXPORT_SCALE = 2;
 
 const THEMES = [
   {
@@ -50,7 +51,7 @@ const THEMES = [
   },
 ];
 
-const ENTRY_COLORS = ["#0095e8", "#f00035"];
+const ENTRY_COLORS = ["#0095e8", "#ffd400"];
 const RUSH_COLORS = {
   blue: "#0095e8",
   yellow: "#ffd400",
@@ -93,11 +94,21 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   ].join(" ");
 }
 
-function sanitizeTiers(tiers: PayoutTier[]): PayoutTier[] {
+function sanitizeTiers(tiers: PayoutTier[], variant: "entry" | "rush" = "rush"): PayoutTier[] {
   return tiers
     .filter((tier) => tier.rate > 0)
     .slice()
-    .sort((a, b) => a.payout - b.payout);
+    .sort((a, b) => {
+      if (variant === "entry") {
+        const score = (tier: PayoutTier) => {
+          if (tier.label.includes("通常")) return 0;
+          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 1;
+          return 2;
+        };
+        return score(a) - score(b);
+      }
+      return a.payout - b.payout;
+    });
 }
 
 function formatPercent(value: number): string {
@@ -161,7 +172,7 @@ function pieChartSvg(params: {
   compact?: boolean;
   variant: "entry" | "rush";
 }) {
-  const tiers = sanitizeTiers(params.tiers);
+  const tiers = sanitizeTiers(params.tiers, params.variant);
   const colors = params.variant === "entry" ? pickEntryColors(tiers) : pickRushColors(tiers);
   const total = Math.max(1, tiers.reduce((sum, tier) => sum + tier.rate, 0));
   let currentAngle = 0;
@@ -218,27 +229,28 @@ function pieChartSvg(params: {
   `;
 }
 
-function heroStatBox(label: string, value: string, subLabel: string, x: number, y: number, width: number, height: number, accent: string) {
-  const fontSize = value.length >= 8 ? 76 : 88;
+function majorSpecRow(label: string, value: string, x: number, y: number, width: number, height: number, accent: string, subValue = "") {
+  const labelWidth = 250;
+  const fontSize = subValue ? 48 : value.length >= 8 ? 52 : 62;
   return `
     <g>
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="12" fill="rgba(0,0,0,0.76)" stroke="${accent}" stroke-width="5"/>
-      <rect x="${x + 7}" y="${y + 7}" width="${width - 14}" height="46" rx="8" fill="rgba(255,255,255,0.16)"/>
-      <text x="${x + width / 2}" y="${y + 40}" text-anchor="middle" class="statLabelLarge">${escapeXml(label)}</text>
-      <text x="${x + width / 2}" y="${y + 128}" text-anchor="middle" class="statValueHero" style="font-size:${fontSize}px">${escapeXml(value)}</text>
-      ${subLabel ? `<text x="${x + width / 2}" y="${y + height - 20}" text-anchor="middle" class="statSub">${escapeXml(subLabel)}</text>` : ""}
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(255,246,210,0.9)" stroke="${accent}" stroke-width="3"/>
+      <rect x="${x}" y="${y}" width="${labelWidth}" height="${height}" rx="6" fill="rgba(14,8,28,0.92)" stroke="${accent}" stroke-width="3"/>
+      <text x="${x + labelWidth / 2}" y="${y + height / 2 + 10}" text-anchor="middle" class="tableLabel">${escapeXml(label)}</text>
+      <text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + (subValue ? 43 : height / 2 + 20)}" text-anchor="middle" class="tableValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      ${subValue ? `<text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + height - 9}" text-anchor="middle" class="tableSub">${escapeXml(subValue)}</text>` : ""}
     </g>
   `;
 }
 
 function miniStatBox(label: string, value: string, x: number, y: number, width: number, height: number, accent: string) {
-  const fontSize = value.length >= 8 ? 43 : 50;
+  const fontSize = value.length >= 8 ? 31 : 36;
   return `
     <g>
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="10" fill="rgba(0,0,0,0.68)" stroke="${accent}" stroke-width="4"/>
-      <rect x="${x + 5}" y="${y + 5}" width="${width - 10}" height="38" rx="8" fill="rgba(255,255,255,0.16)"/>
-      <text x="${x + width / 2}" y="${y + 32}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
-      <text x="${x + width / 2}" y="${y + 86}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(6,10,18,0.8)" stroke="${accent}" stroke-width="3"/>
+      <rect x="${x}" y="${y}" width="${width}" height="34" rx="6" fill="rgba(255,255,255,0.13)"/>
+      <text x="${x + width / 2}" y="${y + 25}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
+      <text x="${x + width / 2}" y="${y + height - 12}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
     </g>
   `;
 }
@@ -258,24 +270,24 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
 
   const charts = result.rushMode === "twoStage"
     ? `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 250, y: 648, r: 104, compact: true, variant: "entry" })}
-      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 585, y: 648, r: 104, compact: true, variant: "rush" })}
-      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 920, y: 648, r: 104, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 670, r: 90, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 520, y: 670, r: 90, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 820, y: 670, r: 90, compact: true, variant: "rush" })}
     `
     : `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 320, y: 635, r: 122, variant: "entry" })}
-      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 820, y: 635, r: 122, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 280, y: 660, r: 102, variant: "entry" })}
+      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 740, y: 660, r: 102, variant: "rush" })}
     `;
   const machineVisual = machineImageDataUrl
     ? `
-      <svg x="1132" y="186" width="396" height="548" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
+      <svg x="1138" y="236" width="372" height="470" viewBox="130 128 610 910" preserveAspectRatio="xMidYMid meet">
         <image href="${machineImageDataUrl}" x="0" y="0" width="1600" height="1200"/>
       </svg>
     `
     : `
-      <rect x="1182" y="188" width="296" height="540" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
-      <rect x="1210" y="220" width="240" height="476" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
-      <circle cx="1330" cy="458" r="168" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
+      <rect x="1182" y="238" width="296" height="470" rx="32" fill="rgba(255,255,255,0.12)" stroke="${theme.gold}" stroke-width="7"/>
+      <rect x="1210" y="270" width="240" height="406" rx="44" fill="#0b0d18" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+      <circle cx="1330" cy="472" r="150" fill="url(#machineGlow)" stroke="${theme.gold}" stroke-width="8"/>
       <circle cx="1330" cy="458" r="110" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="8"/>
       <path d="M1330 300 L1370 420 L1492 420 L1392 490 L1430 610 L1330 538 L1230 610 L1268 490 L1168 420 L1290 420 Z" fill="${theme.gold}" opacity="0.78"/>
       <circle cx="1330" cy="458" r="60" fill="#ffffff" opacity="0.92"/>
@@ -320,10 +332,10 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
       .title { font: 900 64px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 10; paint-order: stroke; letter-spacing: 0; filter: url(#textGlow); }
       .subtitle { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .9; }
       .statLabel { font: 900 23px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
-      .statLabelLarge { font: 900 26px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 5; paint-order: stroke; }
+      .tableLabel { font: 900 28px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 5; paint-order: stroke; }
+      .tableValue { font-family: Georgia, "Times New Roman", serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #5b1010; stroke: rgba(255,255,255,0.45); stroke-width: 2; paint-order: stroke; }
+      .tableSub { font: 900 20px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #7b1313; }
       .statValue { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 5; paint-order: stroke; filter: url(#textGlow); }
-      .statValueHero { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 7; paint-order: stroke; filter: url(#textGlow); }
-      .statSub { font: 900 24px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
       .chartTitle { font: 900 27px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
       .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
       .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
@@ -350,18 +362,20 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
   <text x="1414" y="88" text-anchor="middle" class="brand">オリパチ</text>
 
   <g filter="url(#shadow)">
-    ${heroStatBox("大当り確率", `1/${input.hitProbability}`, "", 76, 168, 300, 178, theme.gold)}
-    ${heroStatBox("RUSH突入率", `${input.rushEntryRate}%`, `実質RUSH突入率 約${effectiveEntry}%`, 392, 168, 300, 178, theme.hot)}
-    ${heroStatBox("RUSH継続率", `${rushContinuation}%`, "", 708, 168, 300, 178, theme.gold)}
-    ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 180, 374, 330, 104, theme.sub)}
-    ${miniStatBox("ST/時短回数", `${stCount}回`, 574, 374, 330, 104, theme.gold)}
+    <rect x="82" y="166" width="625" height="222" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
+    ${majorSpecRow("大当り確率", `1/${input.hitProbability}`, 102, 186, 585, 58, theme.gold)}
+    ${majorSpecRow("RUSH突入率", `${input.rushEntryRate}%`, 102, 254, 585, 58, theme.hot, `実質RUSH突入率 約${effectiveEntry}%`)}
+    ${majorSpecRow("RUSH継続率", `${rushContinuation}%`, 102, 322, 585, 58, theme.gold)}
+    <rect x="82" y="408" width="625" height="86" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
+    ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 116, 420, 255, 62, theme.sub)}
+    ${miniStatBox("ST/時短回数", `${stCount}回`, 418, 420, 255, 62, theme.gold)}
   </g>
 
   <g filter="url(#shadow)">
     <rect x="1108" y="142" width="444" height="715" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
     ${machineVisual}
-    <rect x="1160" y="754" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
-    <text x="1330" y="797" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
+    <rect x="1160" y="756" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
+    <text x="1330" y="799" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -409,14 +423,16 @@ export default function SpecShareCard({ input, result }: Props) {
     image.decoding = "async";
     image.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = CANVAS_WIDTH;
-      canvas.height = CANVAS_HEIGHT;
+      canvas.width = CANVAS_WIDTH * EXPORT_SCALE;
+      canvas.height = CANVAS_HEIGHT * EXPORT_SCALE;
       const context = canvas.getContext("2d");
       if (!context) {
         setDownloadMessage("画像の保存に失敗しました。");
         return;
       }
-      context.drawImage(image, 0, 0);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
         if (!blob) {
           setDownloadMessage("画像の保存に失敗しました。");
