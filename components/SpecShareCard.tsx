@@ -9,7 +9,7 @@ interface Props {
 }
 
 const CANVAS_WIDTH = 1600;
-const CANVAS_HEIGHT = 1200;
+const CANVAS_HEIGHT = 1320;
 const EXPORT_SCALE = 2;
 
 const THEMES = [
@@ -120,6 +120,11 @@ function tierLabel(tier: PayoutTier): string {
   return `${tier.label} ${payout}`;
 }
 
+function payoutText(tier: PayoutTier): string {
+  if (tier.payout === 0) return "0発";
+  return `${tier.payout.toLocaleString()}発`;
+}
+
 function clipText(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
@@ -196,12 +201,14 @@ function pieChartSvg(params: {
       ? { x: entryFixedX, y: entryFixedY }
       : polarToCartesian(params.x, params.y, labelRadius, mid);
     const rate = escapeXml(`${formatPercent(tier.rate)}`);
+    const payout = escapeXml(payoutText(tier));
     const fill = colors[index] ?? RUSH_COLORS.red;
 
     if (tier.rate >= 99.9) {
       return `
         <circle cx="${params.x}" cy="${params.y}" r="${params.r}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
-        <text x="${params.x}" y="${params.y + 16}" text-anchor="middle" class="pieRate">${rate}</text>
+        <text x="${params.x}" y="${params.y - 14}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
+        <text x="${params.x}" y="${params.y + 32}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>
       `;
     }
 
@@ -209,28 +216,28 @@ function pieChartSvg(params: {
       <path d="${describeArc(params.x, params.y, params.r, start, end)}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
       ${
         angle >= 22
-          ? `<text x="${labelPoint.x}" y="${labelPoint.y + 16}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
+          ? `<text x="${labelPoint.x}" y="${labelPoint.y - 12}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
+             <text x="${labelPoint.x}" y="${labelPoint.y + 28}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
           : ""
       }
     `;
   }).join("");
 
   const legend = tiers.map((tier, index) => {
-    const column = Math.floor(index / 3);
-    const row = index % 3;
-    const legendX = params.x - params.r - 44 + column * (params.r + 66);
-    const legendY = params.y + params.r + 28 + row * 28;
+    const legendX = params.x - params.r - 44;
+    const legendY = params.y + params.r + 32 + index * (params.compact ? 24 : 27);
+    const labelLimit = params.compact ? 18 : 22;
     return `
     <g transform="translate(${legendX}, ${legendY})">
       <rect x="0" y="0" width="18" height="18" rx="5" fill="${colors[index] ?? RUSH_COLORS.red}"/>
-      <text x="28" y="15" class="legendText">${escapeXml(clipText(tierLabel(tier), 13))} / ${escapeXml(formatPercent(tier.rate))}</text>
+      <text x="28" y="15" class="legendText">${escapeXml(clipText(tierLabel(tier), labelLimit))} / ${escapeXml(formatPercent(tier.rate))}</text>
     </g>
   `;
   }).join("");
 
   return `
     <g>
-      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 202}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
+      <rect x="${params.x - params.r - 72}" y="${params.y - params.r - 76}" width="${params.r * 2 + 144}" height="${params.r * 2 + 240}" rx="18" fill="rgba(0,0,0,0.48)" stroke="#ffd866" stroke-width="4"/>
       <rect x="${params.x - params.r - 52}" y="${params.y - params.r - 56}" width="${params.r * 2 + 104}" height="48" rx="12" fill="rgba(240,0,53,0.88)" stroke="#ffffff" stroke-width="2"/>
       <text x="${params.x}" y="${params.y - params.r - 21}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
       ${slices}
@@ -241,26 +248,28 @@ function pieChartSvg(params: {
 
 function majorSpecRow(label: string, value: string, x: number, y: number, width: number, height: number, accent: string, subValue = "") {
   const labelWidth = 250;
-  const fontSize = subValue ? 36 : value.length >= 8 ? 52 : 62;
+  const fontSize = subValue ? 40 : value.length >= 8 ? 52 : 62;
+  const valueY = subValue ? y + 39 : y + height / 2 + 20;
+  const subY = y + height - 14;
   return `
     <g>
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(255,246,210,0.9)" stroke="${accent}" stroke-width="3"/>
       <rect x="${x}" y="${y}" width="${labelWidth}" height="${height}" rx="6" fill="rgba(14,8,28,0.92)" stroke="${accent}" stroke-width="3"/>
       <text x="${x + labelWidth / 2}" y="${y + height / 2 + 10}" text-anchor="middle" class="tableLabel">${escapeXml(label)}</text>
-      <text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + (subValue ? 35 : height / 2 + 20)}" text-anchor="middle" class="tableValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
-      ${subValue ? `<text x="${x + labelWidth + (width - labelWidth) / 2}" y="${y + height - 9}" text-anchor="middle" class="tableSub">${escapeXml(subValue)}</text>` : ""}
+      <text x="${x + labelWidth + (width - labelWidth) / 2}" y="${valueY}" text-anchor="middle" class="tableValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      ${subValue ? `<text x="${x + labelWidth + (width - labelWidth) / 2}" y="${subY}" text-anchor="middle" class="tableSub">${escapeXml(subValue)}</text>` : ""}
     </g>
   `;
 }
 
 function miniStatBox(label: string, value: string, x: number, y: number, width: number, height: number, accent: string) {
-  const fontSize = value.length >= 8 ? 31 : 36;
+  const fontSize = value.length >= 8 ? 31 : 38;
   return `
     <g>
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(6,10,18,0.8)" stroke="${accent}" stroke-width="3"/>
-      <rect x="${x}" y="${y}" width="${width}" height="34" rx="6" fill="rgba(255,255,255,0.13)"/>
-      <text x="${x + width / 2}" y="${y + 25}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
-      <text x="${x + width / 2}" y="${y + height - 12}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
+      <rect x="${x}" y="${y}" width="${width}" height="38" rx="6" fill="rgba(255,255,255,0.13)"/>
+      <text x="${x + width / 2}" y="${y + 28}" text-anchor="middle" class="statLabel">${escapeXml(label)}</text>
+      <text x="${x + width / 2}" y="${y + height - 16}" text-anchor="middle" class="statValue" style="font-size:${fontSize}px">${escapeXml(value)}</text>
     </g>
   `;
 }
@@ -281,13 +290,13 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
 
   const charts = result.rushMode === "twoStage"
     ? `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 790, r: 108, compact: true, variant: "entry" })}
-      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 540, y: 790, r: 108, compact: true, variant: "rush" })}
-      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 860, y: 790, r: 108, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 860, r: 108, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 540, y: 860, r: 108, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 860, y: 860, r: 108, compact: true, variant: "rush" })}
     `
     : `
-      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 300, y: 790, r: 136, variant: "entry" })}
-      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 780, y: 790, r: 136, variant: "rush" })}
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 300, y: 860, r: 136, variant: "entry" })}
+      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 780, y: 860, r: 136, variant: "rush" })}
     `;
   const machineVisual = machineImageDataUrl
     ? `
@@ -342,58 +351,61 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
     <style>
       .title { font: 900 64px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #05070d; stroke-width: 10; paint-order: stroke; letter-spacing: 0; filter: url(#textGlow); }
       .subtitle { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .9; }
-      .statLabel { font: 900 23px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
+      .statLabel { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
       .tableLabel { font: 900 28px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 5; paint-order: stroke; }
       .tableValue { font-family: Georgia, "Times New Roman", serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #5b1010; stroke: rgba(255,255,255,0.45); stroke-width: 2; paint-order: stroke; }
-      .tableSub { font: 900 20px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #7b1313; }
+      .tableSub { font: 900 19px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #7b1313; }
       .statValue { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 5; paint-order: stroke; filter: url(#textGlow); }
       .chartTitle { font: 900 27px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
       .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
       .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
-      .legendText { font: 900 16px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 3; paint-order: stroke; }
-      .note { font: 800 18px "Hiragino Sans", "Yu Gothic", sans-serif; fill: rgba(255,255,255,.86); }
+      .piePayout { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 5; paint-order: stroke; }
+      .piePayoutSmall { font: 900 17px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 4; paint-order: stroke; }
+      .legendText { font: 900 15px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 3; paint-order: stroke; }
+      .note { font: 800 18px "Hiragino Sans", "Yu Gothic", sans-serif; fill: rgba(255,255,255,.9); }
       .brand { font: 900 36px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
       .machineName { font: 900 35px "Hiragino Sans", "Yu Gothic", sans-serif; fill: ${theme.gold}; stroke: #061018; stroke-width: 7; paint-order: stroke; }
     </style>
   </defs>
 
-  <rect width="1600" height="1200" fill="url(#bg)"/>
+  <rect width="1600" height="1320" fill="url(#bg)"/>
   <g opacity="0.35">
     <circle cx="210" cy="130" r="290" fill="${theme.main}"/>
     <circle cx="1160" cy="730" r="360" fill="${theme.sub}"/>
-    <path d="M0 930 C300 780 480 1150 780 960 C1060 780 1230 590 1600 710 L1600 1200 L0 1200 Z" fill="#ffffff" opacity="0.06"/>
+    <path d="M0 1030 C300 860 480 1250 780 1060 C1060 860 1230 670 1600 790 L1600 1320 L0 1320 Z" fill="#ffffff" opacity="0.06"/>
   </g>
 
-  <rect x="18" y="18" width="1564" height="1164" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
-  <rect x="34" y="34" width="1532" height="1132" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
-  <rect x="50" y="142" width="1015" height="995" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
+  <rect x="18" y="18" width="1564" height="1284" rx="18" fill="none" stroke="${theme.gold}" stroke-width="7"/>
+  <rect x="34" y="34" width="1532" height="1252" rx="14" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2"/>
+  <rect x="50" y="142" width="1015" height="1115" rx="20" fill="rgba(0,0,0,0.24)" stroke="url(#goldLine)" stroke-width="3"/>
 
   <text x="64" y="92" class="title" style="font-size:${headingSize}px">${escapeXml(displayName)}</text>
   <text x="68" y="126" class="subtitle">ORIPACHI ORIGINAL SPEC SHOWCASE / ${escapeXml(theme.name)} MODEL</text>
   <text x="1414" y="88" text-anchor="middle" class="brand">オリパチ</text>
 
   <g filter="url(#shadow)">
-    <rect x="82" y="166" width="625" height="222" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
-    ${majorSpecRow("大当り確率", `1/${input.hitProbability}`, 102, 186, 585, 58, theme.gold)}
-    ${majorSpecRow("RUSH突入率", `${input.rushEntryRate}%`, 102, 254, 585, 58, theme.hot, `実質RUSH突入率 約${effectiveEntry}%`)}
-    ${majorSpecRow("RUSH継続率", `${rushContinuation}%`, 102, 322, 585, 58, theme.gold)}
-    <rect x="82" y="408" width="625" height="86" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
-    ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 116, 420, 255, 62, theme.sub)}
-    ${miniStatBox("ST/時短回数", `${stCount}回`, 418, 420, 255, 62, theme.gold)}
+    <rect x="82" y="166" width="625" height="258" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
+    ${majorSpecRow("大当り確率", `1/${input.hitProbability}`, 102, 190, 585, 62, theme.gold)}
+    ${majorSpecRow("RUSH突入率", `${input.rushEntryRate}%`, 102, 263, 585, 76, theme.hot, `実質RUSH突入率 約${effectiveEntry}%`)}
+    ${majorSpecRow("RUSH継続率", `${rushContinuation}%`, 102, 350, 585, 62, theme.gold)}
+    <rect x="82" y="452" width="625" height="118" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
+    ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 116, 468, 255, 84, theme.sub)}
+    ${miniStatBox("ST/時短回数", `${stCount}回`, 418, 468, 255, 84, theme.gold)}
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1108" y="142" width="444" height="995" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
+    <rect x="1108" y="142" width="444" height="1115" rx="28" fill="rgba(0,0,0,0.38)" stroke="url(#goldLine)" stroke-width="5"/>
     ${machineVisual}
-    <rect x="1160" y="1010" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
-    <text x="1330" y="1053" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
+    <rect x="1160" y="1110" width="340" height="64" rx="14" fill="rgba(0,0,0,0.65)" stroke="${theme.gold}" stroke-width="3"/>
+    <text x="1330" y="1153" text-anchor="middle" class="machineName">${escapeXml(machineDisplayName)}</text>
   </g>
 
   <g filter="url(#shadow)">
     ${charts}
   </g>
 
-  <text x="70" y="1146" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
+  <rect x="62" y="1205" width="1015" height="38" rx="8" fill="rgba(0,0,0,0.62)"/>
+  <text x="78" y="1229" class="note">※この画像はオリパチで作成したオリジナルスペックの紹介画像です。実機性能・勝敗を保証するものではありません。</text>
 </svg>
   `.trim();
 }
