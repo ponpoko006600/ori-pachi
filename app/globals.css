@@ -547,7 +547,9 @@ button:disabled {
 }
 
 .share-card-preview {
+  position: relative;
   overflow: hidden;
+  aspect-ratio: 1600 / 1320;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.28);
@@ -557,6 +559,19 @@ button:disabled {
   display: block;
   width: 100%;
   height: auto;
+  image-rendering: auto;
+  transform: translateZ(0);
+}
+
+.share-card-rendering {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: rgba(6, 8, 12, 0.64);
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .share-card-actions {

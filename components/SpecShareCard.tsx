@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PayoutTier, SpecInput, SpecResult } from "@/lib/calculator";
 
 interface Props {
@@ -11,6 +11,11 @@ interface Props {
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 1320;
 const EXPORT_SCALE = 2;
+
+type NavigatorWithFileShare = Navigator & {
+  canShare?: (data: ShareData & { files?: File[] }) => boolean;
+  share?: (data: ShareData & { files?: File[] }) => Promise<void>;
+};
 
 const THEMES = [
   {
@@ -72,6 +77,59 @@ function escapeXml(value: string | number): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function sanitizeFileName(value: string): string {
+  const cleanName = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, "-");
+
+  return cleanName || "oripachi";
+}
+
+function isMobileSaveTarget(): boolean {
+  if (typeof navigator === "undefined") return false;
+
+  return navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+async function renderSvgToPng(svg: string, scale = EXPORT_SCALE): Promise<Blob> {
+  const image = new Image();
+  image.decoding = "async";
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("画像の読み込みに失敗しました。"));
+    image.src = svgToDataUrl(svg);
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_WIDTH * scale;
+  canvas.height = CANVAS_HEIGHT * scale;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("画像の作成に失敗しました。");
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  context.drawImage(image, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("画像の保存に失敗しました。"));
+      }
+    }, "image/png");
+  });
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
@@ -414,8 +472,13 @@ export default function SpecShareCard({ input, result }: Props) {
   const [created, setCreated] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
   const [machineImageDataUrl, setMachineImageDataUrl] = useState<string>();
+  const [previewPngUrl, setPreviewPngUrl] = useState("");
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+  const previewObjectUrlRef = useRef<string | null>(null);
   const svg = useMemo(() => buildSpecShareSvg(input, result, machineImageDataUrl), [input, machineImageDataUrl, result]);
-  const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, [svg]);
+  const svgPreviewUrl = useMemo(() => svgToDataUrl(svg), [svg]);
+  const previousSvgRef = useRef(svg);
 
   useEffect(() => {
     let ignore = false;
@@ -440,38 +503,96 @@ export default function SpecShareCard({ input, result }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousSvgRef.current === svg) return;
+
+    previousSvgRef.current = svg;
+    setPreviewBlob(null);
+    setPreviewPngUrl("");
+
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
+  }, [svg]);
+
+  function updatePreviewBlob(blob: Blob) {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+    }
+
+    const nextUrl = URL.createObjectURL(blob);
+    previewObjectUrlRef.current = nextUrl;
+    setPreviewBlob(blob);
+    setPreviewPngUrl(nextUrl);
+  }
+
+  async function createShareImage() {
+    setDownloadMessage("");
+    setCreated(true);
+    setIsRendering(true);
+
+    try {
+      const blob = await renderSvgToPng(svg);
+      updatePreviewBlob(blob);
+    } catch {
+      setDownloadMessage("画像の作成に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsRendering(false);
+    }
+  }
+
   async function saveImage() {
     setDownloadMessage("");
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = CANVAS_WIDTH * EXPORT_SCALE;
-      canvas.height = CANVAS_HEIGHT * EXPORT_SCALE;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        setDownloadMessage("画像の保存に失敗しました。");
+    setIsRendering(true);
+
+    try {
+      const blob = previewBlob ?? await renderSvgToPng(svg);
+      if (!previewBlob) {
+        updatePreviewBlob(blob);
+      }
+
+      const fileName = `${sanitizeFileName(input.name || "oripachi")}-spec.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+      const shareNavigator = navigator as NavigatorWithFileShare;
+
+      if (isMobileSaveTarget() && shareNavigator.canShare?.({ files: [file] }) && shareNavigator.share) {
+        await shareNavigator.share({
+          files: [file],
+          title: `${input.name}のスペック紹介画像`,
+          text: "オリパチで作成したスペック紹介画像です。",
+        });
+        setDownloadMessage("共有シートから画像を保存できます。X投稿ではこの画像を添付してください。");
         return;
       }
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          setDownloadMessage("画像の保存に失敗しました。");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${input.name || "oripachi"}-spec.png`;
-        link.click();
-        URL.revokeObjectURL(url);
-        setDownloadMessage("画像を保存しました。X投稿ではこの画像を添付してください。");
-      }, "image/png");
-    };
-    image.onerror = () => setDownloadMessage("画像の作成に失敗しました。");
-    image.src = previewUrl;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDownloadMessage("高画質画像を保存しました。X投稿ではこの画像を添付してください。");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setDownloadMessage("保存をキャンセルしました。");
+        return;
+      }
+
+      setDownloadMessage("画像の保存に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsRendering(false);
+    }
   }
 
   function shareToX() {
@@ -494,35 +615,31 @@ export default function SpecShareCard({ input, result }: Props) {
           <p className="result-kicker">スペック紹介画像</p>
           <h3>公式風の紹介画像を作成</h3>
         </div>
-        <button className="primary-action" onClick={() => setCreated(true)}>
-          スペック紹介画像を作成
+        <button className="primary-action" onClick={createShareImage} disabled={isRendering}>
+          {isRendering ? "画像を作成中" : "スペック紹介画像を作成"}
         </button>
       </div>
-
-      <p className="share-card-lead">
-        通常画像は無料で保存できます。将来的には広告を見ると高画質版や豪華テンプレートを追加で使える形にします。
-      </p>
 
       {created && (
         <>
           <div className="share-card-preview">
             {/* The preview is a generated data URL, so Next/Image optimization is not useful here. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt={`${input.name}のスペック紹介画像`} />
+            <img
+              src={previewPngUrl || svgPreviewUrl}
+              width={CANVAS_WIDTH * EXPORT_SCALE}
+              height={CANVAS_HEIGHT * EXPORT_SCALE}
+              alt={`${input.name}のスペック紹介画像`}
+            />
+            {isRendering && <div className="share-card-rendering">高画質画像を作成中です</div>}
           </div>
           <div className="share-card-actions">
-            <button className="secondary-action" onClick={saveImage}>
-              画像を保存
+            <button className="secondary-action" onClick={saveImage} disabled={isRendering}>
+              高画質で保存
             </button>
             <button className="primary-action" onClick={shareToX}>
               Xで共有
             </button>
-          </div>
-          <div className="share-card-upgrades">
-            <span>今後追加予定</span>
-            <button type="button" disabled>高画質保存</button>
-            <button type="button" disabled>豪華テンプレート</button>
-            <button type="button" disabled>AI台枠生成</button>
           </div>
           {downloadMessage && <p className="share-card-message">{downloadMessage}</p>}
         </>
