@@ -606,6 +606,9 @@ export default function Home() {
             <p className="feature-note">遊タイム機能は今後実装予定です。現在は「なし」固定で計算します。</p>
 
             <div className="create-actions builder-bottom-actions">
+              <div className={result.check.ok ? "mobile-bottom-status ok" : "mobile-bottom-status warn"}>
+                <strong>{result.check.ok ? "規制内で作成できます" : "調整が必要です"}</strong>
+              </div>
               <button onClick={handleMaximize} className="secondary-action">規制上限まで自動調整</button>
               <button onClick={handleCreate} className="primary-action" disabled={!result.check.ok}>
                 スペックを作成する
