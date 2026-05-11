@@ -193,6 +193,10 @@ function titleFontSize(text: string): number {
   return 64;
 }
 
+function isMultiStageRush(rushMode: SpecResult["rushMode"]) {
+  return rushMode === "twoStage" || rushMode === "threeStage";
+}
+
 function pickRushColors(tiers: PayoutTier[]): string[] {
   if (tiers.length === 1) {
     return tiers[0].payout === 0 ? [RUSH_COLORS.blue] : ["url(#rainbowSlice)"];
@@ -343,16 +347,22 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
     : result.actualRushContinuationRate;
   const showLt = result.regulation.supportsLt;
   const stCount = showLt && result.rushMode === "directLt" ? result.ltStCount : result.stCount;
-  const lowerTitle = result.rushMode === "twoStage" ? "下位RUSH" : "電チュー";
+  const lowerTitle = isMultiStageRush(result.rushMode) ? "下位RUSH" : "電チュー";
   const upperTitle = showLt ? "上位/LT" : "上位RUSH";
 
-  const charts = result.rushMode === "twoStage"
+  const charts = result.rushMode === "threeStage"
     ? `
+      ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 860, r: 108, compact: true, variant: "entry" })}
+      ${pieChartSvg({ title: "中位RUSH", tiers: result.payoutTiers, x: 540, y: 860, r: 108, compact: true, variant: "rush" })}
+      ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 860, y: 860, r: 108, compact: true, variant: "rush" })}
+    `
+    : result.rushMode === "twoStage"
+      ? `
       ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 220, y: 860, r: 108, compact: true, variant: "entry" })}
       ${pieChartSvg({ title: `${lowerTitle}`, tiers: result.payoutTiers, x: 540, y: 860, r: 108, compact: true, variant: "rush" })}
       ${pieChartSvg({ title: `${upperTitle}`, tiers: result.payoutTiers, x: 860, y: 860, r: 108, compact: true, variant: "rush" })}
     `
-    : `
+      : `
       ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 300, y: 860, r: 136, variant: "entry" })}
       ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 780, y: 860, r: 136, variant: "rush" })}
     `;

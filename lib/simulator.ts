@@ -77,13 +77,18 @@ function playRush(input: SpecInput, spec: SpecResult): { payoutBalls: number; ch
   }
 
   const isDirectLt = spec.regulation.supportsLt && spec.rushMode === "directLt";
-  const isTwoStage = spec.rushMode === "twoStage" && Math.random() < input.upperRushEntryRate / 100;
+  const entersMiddle = spec.rushMode === "threeStage" && Math.random() < input.middleRushEntryRate / 100;
+  const isMultiStageUpper = spec.rushMode === "twoStage"
+    ? Math.random() < input.upperRushEntryRate / 100
+    : entersMiddle && Math.random() < input.upperRushEntryRate / 100;
   const isLt = spec.regulation.supportsLt
-    && (isDirectLt || isTwoStage || (spec.rushMode === "standard" && Math.random() < spec.ltEntryRateWithinRush));
+    && (isDirectLt || isMultiStageUpper || (spec.rushMode === "standard" && Math.random() < spec.ltEntryRateWithinRush));
   const continuation = isLt
     ? spec.actualLtContinuationRate / 100
-    : isTwoStage
+    : isMultiStageUpper
       ? spec.actualUpperRushContinuationRate / 100
+      : entersMiddle
+        ? spec.actualMiddleRushContinuationRate / 100
       : spec.actualRushContinuationRate / 100;
 
   let payoutBalls = timeShortEntry ? input.initialPayout : 0;

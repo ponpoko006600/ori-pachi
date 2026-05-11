@@ -22,21 +22,41 @@ import { MACHINE_PRESETS } from "@/lib/presets";
 import SpecResultCard from "@/components/SpecResultCard";
 import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
 
+const PAYOUT_LABEL_PRESETS = [
+  { label: "STリセット", payout: 0 },
+  { label: "2R", payout: 300 },
+  { label: "3R", payout: 450 },
+  { label: "4R", payout: 600 },
+  { label: "5R", payout: 750 },
+  { label: "8R", payout: 1200 },
+  { label: "8R x2", payout: 2400 },
+  { label: "9R", payout: 1350 },
+  { label: "10R", payout: 1500 },
+  { label: "10R x2", payout: 3000 },
+  { label: "10R x3", payout: 4500 },
+  { label: "10R x4", payout: 6000 },
+  { label: "10R x5", payout: 7500 },
+  { label: "その他", payout: null },
+];
+
 export default function Home() {
   const [input, setInput] = useState<SpecInput>({
     name: "俺の最強LT",
     machineType: "e",
     regulationType: "lt",
-    rushMode: "standard",
+    rushMode: "directLt",
     hitProbability: 319,
     rushEntryRate: 55,
     rushContinuationRate: 72,
+    middleRushEntryRate: 50,
+    middleRushContinuationRate: 80,
     upperRushEntryRate: 25,
     upperRushContinuationRate: 81,
     ltContinuationRate: 85,
     continuationCalcMode: "rate",
     rightHitProbability: 79,
     rushStSpins: 130,
+    middleRushStSpins: 130,
     upperRushStSpins: 130,
     ltStSpins: 163,
     nonRushTimeShort: DEFAULT_TIME_SHORT,
@@ -53,6 +73,17 @@ export default function Home() {
   const maxTierPayout = getMaxPayoutForRegulation(input.regulationType);
   const hitProbIndex = HIT_PROBS.indexOf(input.hitProbability);
   const causes = result.check.causes;
+
+  function bonusCountForPayout(payout: number, regulationType = input.regulationType) {
+    const targetRegulation = REGULATIONS[regulationType];
+    if (payout <= 0) return 1;
+
+    return Math.max(1, Math.min(targetRegulation.maxBonusCount, Math.ceil(payout / targetRegulation.maxPayoutPerUnit)));
+  }
+
+  function presetPayoutForLabel(label: string) {
+    return PAYOUT_LABEL_PRESETS.find((preset) => preset.label === label)?.payout;
+  }
 
   function patchInput(patch: Partial<SpecInput>, keepBenchmark = false) {
     setInput((current) => ({ ...current, ...patch, benchmark: keepBenchmark ? current.benchmark : undefined }));
@@ -73,7 +104,7 @@ export default function Home() {
       payoutTiers: current.payoutTiers.map((tier) => ({
         ...tier,
         payout: Math.min(tier.payout, nextRegulation.maxPayoutBundle),
-        bonusCount: Math.max(1, Math.min(nextRegulation.maxBonusCount, tier.bonusCount)),
+        bonusCount: bonusCountForPayout(Math.min(tier.payout, nextRegulation.maxPayoutBundle), regulationType),
       })),
     }));
   }
@@ -83,7 +114,23 @@ export default function Home() {
     setInput((current) => ({
       ...current,
       benchmark: undefined,
-      payoutTiers: current.payoutTiers.map((tier) => tier.id === id ? { ...tier, ...patch } : tier),
+      payoutTiers: current.payoutTiers.map((tier) => {
+        if (tier.id !== id) return tier;
+
+        const nextTier = { ...tier, ...patch };
+        if (patch.label) {
+          const presetPayout = presetPayoutForLabel(patch.label);
+          if (presetPayout !== null && presetPayout !== undefined) {
+            nextTier.payout = Math.min(presetPayout, maxTierPayout);
+          }
+        }
+        if (nextTier.label === "STリセット") {
+          nextTier.payout = 0;
+        }
+        nextTier.bonusCount = bonusCountForPayout(nextTier.payout);
+
+        return nextTier;
+      }),
     }));
   }
 
@@ -97,8 +144,8 @@ export default function Home() {
         ...current.payoutTiers,
         {
           id: `tier-${Date.now()}`,
-          label: `${current.payoutTiers.length + 1}段階`,
-          payout: 0,
+          label: "10R",
+          payout: 1500,
           rate: 0,
           bonusCount: 1,
         },
@@ -106,7 +153,7 @@ export default function Home() {
     }));
   }
 
-  function addPresetTier(label: string, payout: number, bonusCount: number) {
+  function addPresetTier(label: string, payout: number) {
     if (input.payoutTiers.length >= 6) return;
     setSelectedPresetId(null);
     setInput((current) => ({
@@ -119,7 +166,7 @@ export default function Home() {
           label,
           payout: Math.min(payout, maxTierPayout),
           rate: 0,
-          bonusCount,
+          bonusCount: bonusCountForPayout(Math.min(payout, maxTierPayout)),
         },
       ],
     }));
@@ -357,7 +404,7 @@ export default function Home() {
 
             {input.continuationCalcMode === "st" && input.rushMode !== "directLt" && (
               <SliderControl
-                label={input.rushMode === "twoStage" ? "下位Rush ST回数" : "Rush ST回数"}
+                label={isMultiStageRushMode(input.rushMode) ? "下位Rush ST回数" : "Rush ST回数"}
                 valueLabel={`${input.rushStSpins}回 / 約${result.actualRushContinuationRate}%`}
                 inputSuffix="回"
                 inputNote={`約${result.actualRushContinuationRate}%`}
@@ -372,7 +419,7 @@ export default function Home() {
 
             {input.continuationCalcMode === "rate" && input.rushMode !== "directLt" && (
               <SliderControl
-                label={input.rushMode === "twoStage" ? "下位Rush継続率" : "Rush継続率"}
+                label={isMultiStageRushMode(input.rushMode) ? "下位Rush継続率" : "Rush継続率"}
                 valueLabel={`${input.rushContinuationRate}%`}
                 inputSuffix="%"
                 min={1}
@@ -385,7 +432,51 @@ export default function Home() {
               />
             )}
 
-            {input.rushMode === "twoStage" && (
+            {input.rushMode === "threeStage" && (
+              <SliderControl
+                label="中位Rush突入率"
+                valueLabel={`${input.middleRushEntryRate}%`}
+                inputSuffix="%"
+                min={0}
+                max={100}
+                step={1}
+                value={input.middleRushEntryRate}
+                ok={!causes.includes("middleRushEntryRate")}
+                onChange={(middleRushEntryRate) => patchInput({ middleRushEntryRate })}
+              />
+            )}
+
+            {input.continuationCalcMode === "st" && input.rushMode === "threeStage" && (
+              <SliderControl
+                label="中位Rush ST回数"
+                valueLabel={`${input.middleRushStSpins}回 / 約${result.actualMiddleRushContinuationRate}%`}
+                inputSuffix="回"
+                inputNote={`約${result.actualMiddleRushContinuationRate}%`}
+                min={1}
+                max={250}
+                step={1}
+                value={input.middleRushStSpins}
+                ok={!causes.includes("middleRushContinuationRate")}
+                onChange={(middleRushStSpins) => patchInput({ middleRushStSpins })}
+              />
+            )}
+
+            {input.continuationCalcMode === "rate" && input.rushMode === "threeStage" && (
+              <SliderControl
+                label="中位Rush継続率"
+                valueLabel={`${input.middleRushContinuationRate}%`}
+                inputSuffix="%"
+                min={1}
+                max={99}
+                step={1}
+                value={input.middleRushContinuationRate}
+                ok={!causes.includes("middleRushContinuationRate")}
+                onChange={(middleRushContinuationRate) => patchInput({ middleRushContinuationRate })}
+                hint={input.regulationType === "classic" ? "LTなし規制は81%上限で判定" : undefined}
+              />
+            )}
+
+            {isMultiStageRushMode(input.rushMode) && (
               <SliderControl
                 label={regulation.supportsLt ? "上位/LT突入率" : "上位Rush突入率"}
                 valueLabel={`${input.upperRushEntryRate}%`}
@@ -399,7 +490,7 @@ export default function Home() {
               />
             )}
 
-            {input.continuationCalcMode === "st" && input.rushMode === "twoStage" && (
+            {input.continuationCalcMode === "st" && isMultiStageRushMode(input.rushMode) && (
               <SliderControl
                 label={regulation.supportsLt ? "上位/LT ST回数" : "上位Rush ST回数"}
                 valueLabel={`${input.upperRushStSpins}回 / 約${result.actualUpperRushContinuationRate}%`}
@@ -414,7 +505,7 @@ export default function Home() {
               />
             )}
 
-            {input.continuationCalcMode === "rate" && input.rushMode === "twoStage" && !regulation.supportsLt && (
+            {input.continuationCalcMode === "rate" && isMultiStageRushMode(input.rushMode) && !regulation.supportsLt && (
               <SliderControl
                 label="上位Rush継続率"
                 valueLabel={`${input.upperRushContinuationRate}%`}
@@ -477,39 +568,34 @@ export default function Home() {
               {input.payoutTiers.map((tier, index) => (
                 <div key={tier.id} className="tier-card">
                   <div className="tier-head">
-                    <input
+                    <select
                       value={tier.label}
                       onChange={(event) => updateTier(tier.id, { label: event.target.value })}
-                      className="tier-name"
-                      aria-label={`${index + 1}段階目の名前`}
-                    />
+                      className="tier-name tier-select"
+                      aria-label={`${index + 1}段階目の出玉タイプ`}
+                    >
+                      {PAYOUT_LABEL_PRESETS.map((preset) => (
+                        <option key={preset.label} value={preset.label}>{preset.label}</option>
+                      ))}
+                    </select>
                     <button onClick={() => removeTier(tier.id)} disabled={input.payoutTiers.length <= 1}>
                       削除
                     </button>
                   </div>
-                  <SliderControl
-                    label="出玉数"
-                    valueLabel={`${tier.payout.toLocaleString()}発`}
-                    inputSuffix="発"
-                    min={0}
-                    max={maxTierPayout}
-                    step={10}
-                    value={tier.payout}
-                    ok={!causes.includes("payoutTiers") || tier.payout <= maxTierPayout}
-                    onChange={(payout) => updateTier(tier.id, { payout })}
-                  />
-                  <SliderControl
-                    label="内部当たり回数"
-                    valueLabel={`${tier.bonusCount}回`}
-                    inputSuffix="回"
-                    min={1}
-                    max={regulation.maxBonusCount}
-                    step={1}
-                    value={tier.bonusCount}
-                    ok={!causes.includes("payoutTiers") || tier.payout <= regulation.maxPayoutPerUnit * tier.bonusCount}
-                    onChange={(bonusCount) => updateTier(tier.id, { bonusCount })}
-                    hint={`${regulation.maxPayoutPerUnit.toLocaleString()}発 x 回数で高出玉を再現`}
-                  />
+                  {tier.label !== "STリセット" && (
+                    <SliderControl
+                      label="出玉数"
+                      valueLabel={`${tier.payout.toLocaleString()}発`}
+                      inputSuffix="発"
+                      min={0}
+                      max={maxTierPayout}
+                      step={10}
+                      value={tier.payout}
+                      ok={!causes.includes("payoutTiers") || tier.payout <= maxTierPayout}
+                      onChange={(payout) => updateTier(tier.id, { payout })}
+                      hint={`${tier.bonusCount}回分として自動計算`}
+                    />
+                  )}
                   <SliderControl
                     label="割合"
                     valueLabel={`${tier.rate}%`}
@@ -529,9 +615,9 @@ export default function Home() {
               <button onClick={normalizeRates}>割合を100%に補正</button>
             </div>
             <div className="inline-actions preset-actions">
-              <button onClick={() => addPresetTier("STリセット", 0, 1)} disabled={input.payoutTiers.length >= 6}>0発STリセット</button>
-              <button onClick={() => addPresetTier("10R x2", 3000, 2)} disabled={input.payoutTiers.length >= 6}>3000発</button>
-              <button onClick={() => addPresetTier("10R x5", 7500, 5)} disabled={input.payoutTiers.length >= 6}>7500発</button>
+              <button onClick={() => addPresetTier("STリセット", 0)} disabled={input.payoutTiers.length >= 6}>0発STリセット</button>
+              <button onClick={() => addPresetTier("10R x2", 3000)} disabled={input.payoutTiers.length >= 6}>3000発</button>
+              <button onClick={() => addPresetTier("10R x5", 7500)} disabled={input.payoutTiers.length >= 6}>7500発</button>
             </div>
 
             <PanelTitle label="遊タイム" />
@@ -601,7 +687,7 @@ export default function Home() {
               </>
             )}
 
-            <div className="create-actions">
+            <div className="create-actions builder-bottom-actions">
               <button onClick={handleMaximize} className="secondary-action">規制上限まで自動調整</button>
               <button onClick={handleCreate} className="primary-action" disabled={!result.check.ok}>
                 スペックを作成する
@@ -615,14 +701,13 @@ export default function Home() {
               <strong>{result.check.ok ? "規制内で作成できます" : "調整が必要です"}</strong>
               <span>{regulation.description}</span>
             </div>
-            <div className="stat-grid">
-              <PreviewStat label="平均出玉" value={`約${result.avgPayoutPerBonus.toLocaleString()}発`} />
-              {input.rushMode !== "directLt" && <PreviewStat label="RUSH期待" value={`約${result.avgRushPayout.toLocaleString()}発`} />}
-              {input.rushMode === "twoStage" && !regulation.supportsLt && <PreviewStat label="上位RUSH期待" value={`約${result.avgUpperRushPayout.toLocaleString()}発`} />}
-              {regulation.supportsLt && <PreviewStat label="LT期待" value={`約${result.avgLtPayout.toLocaleString()}発`} />}
-              <PreviewStat label="初当たり期待" value={`約${result.avgTotalPayout.toLocaleString()}発`} />
-              {input.nonRushTimeShort.enabled && <PreviewStat label="実質RUSH突入" value={`約${Math.round(result.effectiveRushEntryRate * 100)}%`} />}
+            <div className="preview-desktop-stats">
+              <PreviewStats input={input} result={result} regulationSupportsLt={regulation.supportsLt} />
             </div>
+            <details className="preview-mobile-dropdown">
+              <summary>期待値を見る</summary>
+              <PreviewStats input={input} result={result} regulationSupportsLt={regulation.supportsLt} />
+            </details>
             <div className="suggestion-box">
               {result.suggestions.map((suggestion) => (
                 <p key={suggestion}>{suggestion}</p>
@@ -655,16 +740,21 @@ function PanelTitle({ label, aside }: { label: string; aside?: string }) {
 function getRushModeOptions(regulationType: RegulationType): Array<{ value: RushMode; label: string }> {
   if (regulationType === "lt") {
     return [
-      { value: "standard", label: "下位Rushあり" },
-      { value: "directLt", label: "直LT" },
+      { value: "directLt", label: "直RUSH（LT）" },
       { value: "twoStage", label: "2段階Rush" },
+      { value: "threeStage", label: "3段階Rush" },
     ];
   }
 
   return [
-    { value: "standard", label: "1段階Rush" },
+    { value: "standard", label: "直RUSH" },
     { value: "twoStage", label: "2段階Rush" },
+    { value: "threeStage", label: "3段階Rush" },
   ];
+}
+
+function isMultiStageRushMode(rushMode: RushMode) {
+  return rushMode === "twoStage" || rushMode === "threeStage";
 }
 
 function SliderControl({
@@ -780,6 +870,24 @@ function PreviewStat({ label, value }: { label: string; value: string }) {
     <div className="stat-item">
       <div className="stat-label">{label}</div>
       <div className="stat-value cyan">{value}</div>
+    </div>
+  );
+}
+
+function PreviewStats({ input, result, regulationSupportsLt }: {
+  input: SpecInput;
+  result: ReturnType<typeof calculateSpec>;
+  regulationSupportsLt: boolean;
+}) {
+  return (
+    <div className="stat-grid">
+      <PreviewStat label="平均出玉" value={`約${result.avgPayoutPerBonus.toLocaleString()}発`} />
+      {input.rushMode !== "directLt" && <PreviewStat label="RUSH期待" value={`約${result.avgRushPayout.toLocaleString()}発`} />}
+      {input.rushMode === "threeStage" && <PreviewStat label="中位RUSH期待" value={`約${result.avgMiddleRushPayout.toLocaleString()}発`} />}
+      {isMultiStageRushMode(input.rushMode) && !regulationSupportsLt && <PreviewStat label="上位RUSH期待" value={`約${result.avgUpperRushPayout.toLocaleString()}発`} />}
+      {regulationSupportsLt && <PreviewStat label="LT期待" value={`約${result.avgLtPayout.toLocaleString()}発`} />}
+      <PreviewStat label="初当たり期待" value={`約${result.avgTotalPayout.toLocaleString()}発`} />
+      {input.nonRushTimeShort.enabled && <PreviewStat label="実質RUSH突入" value={`約${Math.round(result.effectiveRushEntryRate * 100)}%`} />}
     </div>
   );
 }

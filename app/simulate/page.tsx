@@ -35,12 +35,15 @@ function withDefaults(value: Partial<SpecInput>): SpecInput {
     hitProbability: value.hitProbability ?? 319,
     rushEntryRate: value.rushEntryRate ?? 55,
     rushContinuationRate: value.rushContinuationRate ?? 72,
+    middleRushEntryRate: value.middleRushEntryRate ?? 50,
+    middleRushContinuationRate: value.middleRushContinuationRate ?? 80,
     upperRushEntryRate: value.upperRushEntryRate ?? 25,
     upperRushContinuationRate: value.upperRushContinuationRate ?? 81,
     ltContinuationRate: value.ltContinuationRate ?? 85,
     continuationCalcMode: value.continuationCalcMode ?? "rate",
     rightHitProbability: value.rightHitProbability ?? (value.machineType === "P" ? 99 : 79),
     rushStSpins: value.rushStSpins ?? 130,
+    middleRushStSpins: value.middleRushStSpins ?? 130,
     upperRushStSpins: value.upperRushStSpins ?? 130,
     ltStSpins: value.ltStSpins ?? 163,
     nonRushTimeShort: { ...DEFAULT_TIME_SHORT, ...(value.nonRushTimeShort ?? {}) },
@@ -77,12 +80,15 @@ function getInputFromParams(params: URLSearchParams): SpecInput {
     hitProbability: 319,
     rushEntryRate: 55,
     rushContinuationRate: 72,
+    middleRushEntryRate: 50,
+    middleRushContinuationRate: 80,
     upperRushEntryRate: 25,
     upperRushContinuationRate: 81,
     ltContinuationRate: 85,
     continuationCalcMode: "rate",
     rightHitProbability: 79,
     rushStSpins: 130,
+    middleRushStSpins: 130,
     upperRushStSpins: 130,
     ltStSpins: 163,
     nonRushTimeShort: DEFAULT_TIME_SHORT,
@@ -158,8 +164,10 @@ function SimulatePage() {
               <ResultStat label="大当たり" value={`1/${input.hitProbability}`} highlight />
               <ResultStat label="RUSH突入" value={`${input.rushEntryRate}%`} highlight />
               {spec.rushMode !== "directLt" && <ResultStat label="RUSH継続" value={`${spec.actualRushContinuationRate}%`} />}
-              {spec.rushMode === "twoStage" && <ResultStat label="上位突入" value={`${input.upperRushEntryRate}%`} />}
-              {spec.rushMode === "twoStage" && !spec.regulation.supportsLt && <ResultStat label="上位継続" value={`${spec.actualUpperRushContinuationRate}%`} />}
+              {spec.rushMode === "threeStage" && <ResultStat label="中位突入" value={`${input.middleRushEntryRate}%`} />}
+              {spec.rushMode === "threeStage" && <ResultStat label="中位継続" value={`${spec.actualMiddleRushContinuationRate}%`} />}
+              {isMultiStageRush(spec.rushMode) && <ResultStat label="上位突入" value={`${input.upperRushEntryRate}%`} />}
+              {isMultiStageRush(spec.rushMode) && !spec.regulation.supportsLt && <ResultStat label="上位継続" value={`${spec.actualUpperRushContinuationRate}%`} />}
               <ResultStat label="初当たり期待" value={`約${spec.avgTotalPayout.toLocaleString()}発`} highlight color="cyan" />
               {input.nonRushTimeShort.enabled && <ResultStat label="実質RUSH突入" value={`約${Math.round(spec.effectiveRushEntryRate * 100)}%`} />}
               {spec.regulation.supportsLt && (
@@ -288,6 +296,10 @@ function ResultStat({ label, value, highlight, color }: {
       <div className={valueClass}>{value}</div>
     </div>
   );
+}
+
+function isMultiStageRush(rushMode: SpecInput["rushMode"]) {
+  return rushMode === "twoStage" || rushMode === "threeStage";
 }
 
 export default function SimulatePageWrapper() {

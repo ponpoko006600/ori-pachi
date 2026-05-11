@@ -15,9 +15,10 @@ function encodeSpec(input: SpecInput) {
 }
 
 const RUSH_MODE_LABEL = {
-  standard: "1段階Rush",
-  directLt: "直LT",
+  standard: "直RUSH",
+  directLt: "直RUSH（LT）",
   twoStage: "2段階Rush",
+  threeStage: "3段階Rush",
 };
 
 export default function SpecResultCard({ input, result }: Props) {
@@ -60,13 +61,17 @@ export default function SpecResultCard({ input, result }: Props) {
             <StatItem label="RUSH突入率" value={`${input.rushEntryRate}%`} highlight />
             {input.nonRushTimeShort.enabled && <StatItem label="実質RUSH突入率" value={`約${Math.round(result.effectiveRushEntryRate * 100)}%`} highlight color="cyan" />}
             <StatItem label="Rush構造" value={RUSH_MODE_LABEL[result.rushMode]} />
-            {result.rushMode !== "directLt" && (
-              <StatItem label={result.rushMode === "twoStage" ? "下位RUSH継続率" : "RUSH継続率"} value={`${result.actualRushContinuationRate}%`} />
+            {result.rushMode !== "directLt" && <StatItem label={isMultiStageRush(result.rushMode) ? "下位RUSH継続率" : "RUSH継続率"} value={`${result.actualRushContinuationRate}%`} />}
+            {result.rushMode === "threeStage" && (
+              <>
+                <StatItem label="中位RUSH突入率" value={`${input.middleRushEntryRate}%`} />
+                <StatItem label="中位RUSH継続率" value={`${result.actualMiddleRushContinuationRate}%`} />
+              </>
             )}
-            {result.rushMode === "twoStage" && (
+            {isMultiStageRush(result.rushMode) && (
               <StatItem label={result.regulation.supportsLt ? "上位/LT突入率" : "上位RUSH突入率"} value={`${input.upperRushEntryRate}%`} />
             )}
-            {result.rushMode === "twoStage" && !result.regulation.supportsLt && (
+            {isMultiStageRush(result.rushMode) && !result.regulation.supportsLt && (
               <StatItem label="上位RUSH継続率" value={`${result.actualUpperRushContinuationRate}%`} />
             )}
             <StatItem
@@ -85,7 +90,10 @@ export default function SpecResultCard({ input, result }: Props) {
             <StatItem label="初当たり出玉" value={`約${result.initialPayout.toLocaleString()}発`} />
             <StatItem label="平均出玉/当たり" value={`約${result.avgPayoutPerBonus.toLocaleString()}発`} />
             {result.rushMode !== "directLt" && <StatItem label="RUSH期待出玉" value={`約${result.avgRushPayout.toLocaleString()}発`} highlight />}
-            {result.rushMode === "twoStage" && !result.regulation.supportsLt && (
+            {result.rushMode === "threeStage" && (
+              <StatItem label="中位RUSH期待出玉" value={`約${result.avgMiddleRushPayout.toLocaleString()}発`} highlight color="gold" />
+            )}
+            {isMultiStageRush(result.rushMode) && !result.regulation.supportsLt && (
               <StatItem label="上位RUSH期待出玉" value={`約${result.avgUpperRushPayout.toLocaleString()}発`} highlight color="gold" />
             )}
             {result.regulation.supportsLt && (
@@ -121,11 +129,18 @@ export default function SpecResultCard({ input, result }: Props) {
             stLabel="初当たり"
           />
           <PayoutPieChart
-            title={result.rushMode === "twoStage" ? "下位RUSH・割合" : "電チュー・割合"}
+            title={isMultiStageRush(result.rushMode) ? "下位RUSH・割合" : "電チュー・割合"}
             tiers={result.payoutTiers}
-            stLabel={result.rushMode === "twoStage" ? lowerRushStLabel : `ST${result.regulation.supportsLt ? result.ltStCount : result.stCount}回転`}
+            stLabel={isMultiStageRush(result.rushMode) ? lowerRushStLabel : `ST${result.regulation.supportsLt ? result.ltStCount : result.stCount}回転`}
           />
-          {result.rushMode === "twoStage" && (
+          {result.rushMode === "threeStage" && (
+            <PayoutPieChart
+              title="中位RUSH・割合"
+              tiers={result.payoutTiers}
+              stLabel={`ST${input.middleRushStSpins || result.stCount}回転`}
+            />
+          )}
+          {isMultiStageRush(result.rushMode) && (
             <PayoutPieChart
               title={result.regulation.supportsLt ? "上位/LT・割合" : "上位RUSH・割合"}
               tiers={result.payoutTiers}
@@ -150,6 +165,10 @@ export default function SpecResultCard({ input, result }: Props) {
       </div>
     </div>
   );
+}
+
+function isMultiStageRush(rushMode: SpecResult["rushMode"]) {
+  return rushMode === "twoStage" || rushMode === "threeStage";
 }
 
 function StatItem({ label, value, highlight, color }: {

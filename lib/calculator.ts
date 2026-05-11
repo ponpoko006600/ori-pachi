@@ -2,7 +2,7 @@ export type MachineType = "P" | "e";
 export type HitProbability = 99 | 129 | 199 | 319 | 349 | 399;
 export type RegulationType = "lt" | "classic";
 export type ProbabilityMode = "normal" | "high";
-export type RushMode = "standard" | "directLt" | "twoStage";
+export type RushMode = "standard" | "directLt" | "twoStage" | "threeStage";
 export type ContinuationCalcMode = "rate" | "st";
 
 export interface PayoutTier {
@@ -42,12 +42,15 @@ export interface SpecInput {
   hitProbability: HitProbability;
   rushEntryRate: number;
   rushContinuationRate: number;
+  middleRushEntryRate: number;
+  middleRushContinuationRate: number;
   upperRushEntryRate: number;
   upperRushContinuationRate: number;
   ltContinuationRate: number;
   continuationCalcMode: ContinuationCalcMode;
   rightHitProbability: number;
   rushStSpins: number;
+  middleRushStSpins: number;
   upperRushStSpins: number;
   ltStSpins: number;
   nonRushTimeShort: TimeShortSettings;
@@ -90,19 +93,23 @@ export interface SpecResult {
   ltStCount: number;
   rushMode: RushMode;
   rushEntryRate: number;
+  middleRushEntryRate: number;
   upperRushEntryRate: number;
   ltEntryRate: number;
   ltEntryRateWithinRush: number;
   effectiveRushEntryRate: number;
   timeShortReturnRate: number;
   actualRushContinuationRate: number;
+  actualMiddleRushContinuationRate: number;
   actualUpperRushContinuationRate: number;
   actualLtContinuationRate: number;
   avgRushChain: number;
+  avgMiddleRushChain: number;
   avgUpperRushChain: number;
   avgLtChain: number;
   avgPayoutPerBonus: number;
   avgRushPayout: number;
+  avgMiddleRushPayout: number;
   avgUpperRushPayout: number;
   avgLtPayout: number;
   initialPayout: number;
@@ -221,6 +228,10 @@ function normalizeMode(input: SpecInput, regulation: RegulationPreset): RushMode
   return input.rushMode ?? "standard";
 }
 
+function isMultiStageRush(rushMode: RushMode): boolean {
+  return rushMode === "twoStage" || rushMode === "threeStage";
+}
+
 export function getRegulation(input: Pick<SpecInput, "regulationType">): RegulationPreset {
   return REGULATIONS[input.regulationType];
 }
@@ -249,6 +260,9 @@ export function calculateSpec(input: SpecInput): SpecResult {
   const actualRushContinuationRate = calcMode === "st"
     ? calcStContinuationRate(rightHitProbability, stCount)
     : input.rushContinuationRate;
+  const actualMiddleRushContinuationRate = calcMode === "st"
+    ? calcStContinuationRate(rightHitProbability, input.middleRushStSpins ?? stCount)
+    : input.middleRushContinuationRate;
   const actualUpperRushContinuationRate = calcMode === "st"
     ? calcStContinuationRate(rightHitProbability, input.upperRushStSpins ?? stCount)
     : input.upperRushContinuationRate;
@@ -260,13 +274,16 @@ export function calculateSpec(input: SpecInput): SpecResult {
     ? calcStContinuationRate(input.hitProbability, input.nonRushTimeShort.spins) / 100
     : 0;
   const rushEntryRate = directRushEntryRate + (1 - directRushEntryRate) * timeShortReturnRate;
-  const upperRushEntryRate = rushMode === "twoStage" ? clamp(input.upperRushEntryRate, 0, 100) / 100 : 0;
+  const middleRushEntryRate = rushMode === "threeStage" ? clamp(input.middleRushEntryRate, 0, 100) / 100 : 0;
+  const upperRushEntryRate = isMultiStageRush(rushMode) ? clamp(input.upperRushEntryRate, 0, 100) / 100 : 0;
   const avgRushChain = rushMode === "directLt" ? 0 : chainAverage(actualRushContinuationRate);
-  const avgUpperRushChain = rushMode === "twoStage" ? chainAverage(actualUpperRushContinuationRate) : 0;
+  const avgMiddleRushChain = rushMode === "threeStage" ? chainAverage(actualMiddleRushContinuationRate) : 0;
+  const avgUpperRushChain = isMultiStageRush(rushMode) ? chainAverage(actualUpperRushContinuationRate) : 0;
   const avgLtChain = regulation.supportsLt ? chainAverage(actualLtContinuationRate) : 0;
   const avgPayoutPerBonus = getAveragePayout(input.payoutTiers);
   const avgRushPayout = avgPayoutPerBonus * (rushMode === "directLt" ? 0 : futureHitAverage(actualRushContinuationRate));
-  const avgUpperRushPayout = avgPayoutPerBonus * (rushMode === "twoStage" ? futureHitAverage(actualUpperRushContinuationRate) : 0);
+  const avgMiddleRushPayout = avgPayoutPerBonus * (rushMode === "threeStage" ? futureHitAverage(actualMiddleRushContinuationRate) : 0);
+  const avgUpperRushPayout = avgPayoutPerBonus * (isMultiStageRush(rushMode) ? futureHitAverage(actualUpperRushContinuationRate) : 0);
   const avgLtPayout = regulation.supportsLt ? avgPayoutPerBonus * futureHitAverage(actualLtContinuationRate) : 0;
   const tierRateTotal = getPayoutTierRateTotal(input.payoutTiers);
 
@@ -300,7 +317,12 @@ export function calculateSpec(input: SpecInput): SpecResult {
     causes.add("rushContinuationRate");
   }
 
-  if (!regulation.supportsLt && rushMode === "twoStage" && actualUpperRushContinuationRate > regulation.maxContinuationRate) {
+  if (!regulation.supportsLt && rushMode === "threeStage" && actualMiddleRushContinuationRate > regulation.maxContinuationRate) {
+    warnings.push(`LTなし規制では中位RUSH継続率の上限を${regulation.maxContinuationRate}%として判定します。`);
+    causes.add("middleRushContinuationRate");
+  }
+
+  if (!regulation.supportsLt && isMultiStageRush(rushMode) && actualUpperRushContinuationRate > regulation.maxContinuationRate) {
     warnings.push(`LTなし規制では上位RUSH継続率の上限を${regulation.maxContinuationRate}%として判定します。`);
     causes.add("upperRushContinuationRate");
   }
@@ -317,6 +339,8 @@ export function calculateSpec(input: SpecInput): SpecResult {
       ltEntryRateWithinRush = 1;
     } else if (rushMode === "twoStage") {
       ltEntryRateWithinRush = upperRushEntryRate;
+    } else if (rushMode === "threeStage") {
+      ltEntryRateWithinRush = middleRushEntryRate * upperRushEntryRate;
     } else if (regulation.maxLtRatio) {
       const maxLtShareByRatio = (regulation.maxLtRatio * input.initialPayout)
         / ((1 - regulation.maxLtRatio) * Math.max(avgLtPayout, 1) * Math.max(rushEntryRate, 0.001));
@@ -328,18 +352,23 @@ export function calculateSpec(input: SpecInput): SpecResult {
   const timeShortEntryRate = (1 - directRushEntryRate) * timeShortReturnRate;
   const lowerRushExpected = rushMode === "directLt"
     ? 0
-    : rushEntryRate * (1 - ltEntryRateWithinRush) * avgRushPayout;
-  const upperRushExpected = !regulation.supportsLt && rushMode === "twoStage"
-    ? rushEntryRate * upperRushEntryRate * avgUpperRushPayout
+    : rushMode === "threeStage"
+      ? rushEntryRate * (1 - middleRushEntryRate) * avgRushPayout
+      : rushEntryRate * (1 - ltEntryRateWithinRush) * avgRushPayout;
+  const middleRushExpected = rushMode === "threeStage"
+    ? rushEntryRate * middleRushEntryRate * (1 - upperRushEntryRate) * avgMiddleRushPayout
+    : 0;
+  const upperRushExpected = !regulation.supportsLt && isMultiStageRush(rushMode)
+    ? rushEntryRate * (rushMode === "threeStage" ? middleRushEntryRate : 1) * upperRushEntryRate * avgUpperRushPayout
     : 0;
   const ltExpected = regulation.supportsLt ? ltEntryRate * avgLtPayout : 0;
-  const classicRushExpected = !regulation.supportsLt && rushMode !== "twoStage"
+  const classicRushExpected = !regulation.supportsLt && !isMultiStageRush(rushMode)
     ? rushEntryRate * avgRushPayout
     : 0;
   const timeShortHitPayout = timeShortEntryRate * input.initialPayout;
-  const avgTotalPayout = input.initialPayout + timeShortHitPayout + lowerRushExpected + upperRushExpected + ltExpected + classicRushExpected;
+  const avgTotalPayout = input.initialPayout + timeShortHitPayout + lowerRushExpected + middleRushExpected + upperRushExpected + ltExpected + classicRushExpected;
   const displayedAvgTotalPayout = input.benchmark?.avgTotalPayoutBalls ?? avgTotalPayout;
-  const ltRatio = ltExpected / Math.max(input.initialPayout + lowerRushExpected + ltExpected, 1);
+  const ltRatio = ltExpected / Math.max(input.initialPayout + lowerRushExpected + middleRushExpected + ltExpected, 1);
   const suggestions: string[] = [];
 
   if (regulation.supportsLt && regulation.maxLtRatio && ltRatio > regulation.maxLtRatio + 0.001) {
@@ -347,7 +376,7 @@ export function calculateSpec(input: SpecInput): SpecResult {
       suggestions.push(`直LT系のため、LT比率${Math.round(ltRatio * 100)}%は参考値として表示しています。`);
     } else {
       warnings.push(`LT比率が約${Math.round(ltRatio * 100)}%で、${Math.round(regulation.maxLtRatio * 100)}%上限を超えています。突入率・LT継続率・LT出玉を下げてください。`);
-      causes.add(rushMode === "twoStage" ? "upperRushEntryRate" : "rushEntryRate");
+      causes.add(rushMode === "threeStage" ? "middleRushEntryRate" : rushMode === "twoStage" ? "upperRushEntryRate" : "rushEntryRate");
       causes.add("ltContinuationRate");
       causes.add("payoutTiers");
     }
@@ -363,13 +392,16 @@ export function calculateSpec(input: SpecInput): SpecResult {
     if (rushMode === "twoStage") {
       suggestions.push(regulation.supportsLt ? "2段階RUSH型として、上位突入後をLTとして計算しています。" : "2段階RUSH型として、下位RUSHと上位RUSHを分けて計算しています。");
     }
+    if (rushMode === "threeStage") {
+      suggestions.push(regulation.supportsLt ? "3段階RUSH型として、下位・中位・上位/LTを分けて計算しています。" : "3段階RUSH型として、下位・中位・上位RUSHを分けて計算しています。");
+    }
     if (regulation.supportsLt && remainingLtPayout > 100) {
       suggestions.push(`LT期待出玉に約${Math.round(remainingLtPayout).toLocaleString()}発の余裕があります。出玉ティアかLT継続率を上げられます。`);
     }
     if (timeShortReturnRate > 0) {
       suggestions.push(`非突入時短${input.nonRushTimeShort.spins}回の引き戻しを含めた実質RUSH突入率は約${round1(rushEntryRate * 100)}%です。`);
-    } else if (!regulation.supportsLt && Math.max(actualRushContinuationRate, actualUpperRushContinuationRate) < regulation.maxContinuationRate) {
-      suggestions.push(`LTなし規制の継続率上限まで、あと${round1(regulation.maxContinuationRate - Math.max(actualRushContinuationRate, actualUpperRushContinuationRate))}%上げられます。`);
+    } else if (!regulation.supportsLt && Math.max(actualRushContinuationRate, actualMiddleRushContinuationRate, actualUpperRushContinuationRate) < regulation.maxContinuationRate) {
+      suggestions.push(`LTなし規制の継続率上限まで、あと${round1(regulation.maxContinuationRate - Math.max(actualRushContinuationRate, actualMiddleRushContinuationRate, actualUpperRushContinuationRate))}%上げられます。`);
     }
   } else {
     suggestions.push("赤く表示された項目を下げるか、内部当たり回数・出玉振り分けの合計を調整してください。");
@@ -407,19 +439,23 @@ export function calculateSpec(input: SpecInput): SpecResult {
     ltStCount,
     rushMode,
     rushEntryRate: round2(rushEntryRate),
+    middleRushEntryRate: round2(middleRushEntryRate),
     upperRushEntryRate: round2(upperRushEntryRate),
     ltEntryRate: round2(ltEntryRate),
     ltEntryRateWithinRush: round2(ltEntryRateWithinRush),
     effectiveRushEntryRate: round2(rushEntryRate),
     timeShortReturnRate: round2(timeShortReturnRate),
     actualRushContinuationRate: round1(actualRushContinuationRate),
+    actualMiddleRushContinuationRate: round1(actualMiddleRushContinuationRate),
     actualUpperRushContinuationRate: round1(actualUpperRushContinuationRate),
     actualLtContinuationRate: round1(actualLtContinuationRate),
     avgRushChain: round1(avgRushChain),
+    avgMiddleRushChain: round1(avgMiddleRushChain),
     avgUpperRushChain: round1(avgUpperRushChain),
     avgLtChain: round1(avgLtChain),
     avgPayoutPerBonus: Math.round(avgPayoutPerBonus),
     avgRushPayout: Math.round(avgRushPayout),
+    avgMiddleRushPayout: Math.round(avgMiddleRushPayout),
     avgUpperRushPayout: Math.round(avgUpperRushPayout),
     avgLtPayout: Math.round(avgLtPayout),
     initialPayout: input.initialPayout,
@@ -445,7 +481,7 @@ export function maximizeSpec(input: SpecInput): SpecInput {
   const avgPayout = Math.max(1, getAveragePayout(input.payoutTiers));
   const targetChain = regulation.supportsLt
     ? futureHitAverage(input.ltContinuationRate)
-    : futureHitAverage(input.rushMode === "twoStage" ? input.upperRushContinuationRate : input.rushContinuationRate);
+    : futureHitAverage(isMultiStageRush(input.rushMode) ? input.upperRushContinuationRate : input.rushContinuationRate);
   const targetAverage = Math.min(regulation.maxPayoutBundle, (regulation.maxLtTotalPayout ?? regulation.maxPayoutBundle) / Math.max(targetChain, 1));
   const scale = Math.max(1, targetAverage / avgPayout);
   const next: SpecInput = {
