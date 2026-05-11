@@ -153,25 +153,6 @@ export default function Home() {
     }));
   }
 
-  function addPresetTier(label: string, payout: number) {
-    if (input.payoutTiers.length >= 6) return;
-    setSelectedPresetId(null);
-    setInput((current) => ({
-      ...current,
-      benchmark: undefined,
-      payoutTiers: [
-        ...current.payoutTiers,
-        {
-          id: `tier-${Date.now()}-${payout}`,
-          label,
-          payout: Math.min(payout, maxTierPayout),
-          rate: 0,
-          bonusCount: bonusCountForPayout(Math.min(payout, maxTierPayout)),
-        },
-      ],
-    }));
-  }
-
   function removeTier(id: string) {
     if (input.payoutTiers.length <= 1) return;
     setSelectedPresetId(null);
@@ -614,78 +595,15 @@ export default function Home() {
               <button onClick={addTier} disabled={input.payoutTiers.length >= 6}>ティア追加</button>
               <button onClick={normalizeRates}>割合を100%に補正</button>
             </div>
-            <div className="inline-actions preset-actions">
-              <button onClick={() => addPresetTier("STリセット", 0)} disabled={input.payoutTiers.length >= 6}>0発STリセット</button>
-              <button onClick={() => addPresetTier("10R x2", 3000)} disabled={input.payoutTiers.length >= 6}>3000発</button>
-              <button onClick={() => addPresetTier("10R x5", 7500)} disabled={input.payoutTiers.length >= 6}>7500発</button>
-            </div>
 
             <PanelTitle label="遊タイム" />
             <div className="toggle-row">
               <span>遊タイム</span>
-              <button
-                onClick={() => patchInput({ yutime: { ...input.yutime, enabled: !input.yutime.enabled } })}
-                className={input.yutime.enabled ? "toggle active" : "toggle"}
-              >
-                {input.yutime.enabled ? "あり" : "なし"}
+              <button className="toggle" disabled>
+                なし
               </button>
             </div>
-            {input.yutime.enabled && (
-              <>
-                <SliderControl
-                  label="発動までの回転数"
-                  valueLabel={`${input.yutime.triggerSpins}回転`}
-                  inputSuffix="回転"
-                  min={100}
-                  max={1500}
-                  step={1}
-                  value={input.yutime.triggerSpins}
-                  ok
-                  onChange={(triggerSpins) => patchInput({ yutime: { ...input.yutime, triggerSpins } })}
-                />
-                <SliderControl
-                  label="時短回転数"
-                  valueLabel={`${input.yutime.supportSpins}回転`}
-                  inputSuffix="回転"
-                  min={1}
-                  max={1500}
-                  step={1}
-                  value={input.yutime.supportSpins}
-                  ok
-                  onChange={(supportSpins) => patchInput({ yutime: { ...input.yutime, supportSpins } })}
-                />
-                <div className="field-stack">
-                  <label className="field-label">遊タイム中の当たり確率</label>
-                  <div className="segmented">
-                    <button
-                      onClick={() => patchInput({ yutime: { ...input.yutime, probabilityMode: "normal" } })}
-                      className={input.yutime.probabilityMode === "normal" ? "active" : ""}
-                    >
-                      通常確率
-                    </button>
-                    <button
-                      onClick={() => patchInput({ yutime: { ...input.yutime, probabilityMode: "high" } })}
-                      className={input.yutime.probabilityMode === "high" ? "active" : ""}
-                    >
-                      高確率
-                    </button>
-                  </div>
-                </div>
-                {input.yutime.probabilityMode === "high" && (
-                  <SliderControl
-                    label="高確率分母"
-                    valueLabel={`1/${input.yutime.highProbability}`}
-                    inputPrefix="1/"
-                    min={10}
-                    max={199}
-                    step={1}
-                    value={input.yutime.highProbability}
-                    ok
-                    onChange={(highProbability) => patchInput({ yutime: { ...input.yutime, highProbability } })}
-                  />
-                )}
-              </>
-            )}
+            <p className="feature-note">遊タイム機能は今後実装予定です。現在は「なし」固定で計算します。</p>
 
             <div className="create-actions builder-bottom-actions">
               <button onClick={handleMaximize} className="secondary-action">規制上限まで自動調整</button>

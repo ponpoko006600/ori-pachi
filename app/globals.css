@@ -625,6 +625,17 @@ button:disabled {
   display: none;
 }
 
+.feature-note {
+  border: 1px dashed rgba(255, 209, 72, 0.34);
+  border-radius: 8px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  color: rgba(244, 247, 251, 0.72);
+  background: rgba(255, 209, 72, 0.06);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .preset-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1170,11 +1181,11 @@ button:disabled {
 
 @media (max-width: 880px) {
   .builder-shell {
-    padding-bottom: calc(300px + env(safe-area-inset-bottom));
+    padding-bottom: calc(172px + env(safe-area-inset-bottom));
   }
 
   .result-section {
-    padding-bottom: calc(300px + env(safe-area-inset-bottom));
+    padding-bottom: calc(172px + env(safe-area-inset-bottom));
   }
 
   .builder-grid {
@@ -1185,30 +1196,25 @@ button:disabled {
     position: fixed;
     z-index: 30;
     right: 12px;
-    bottom: calc(78px + env(safe-area-inset-bottom));
+    bottom: calc(76px + env(safe-area-inset-bottom));
     left: 12px;
-    max-height: min(34vh, 220px);
-    overflow: auto;
-    padding: 8px 10px;
-    border-color: rgba(255, 209, 72, 0.38);
-    background: rgba(12, 16, 26, 0.94);
-    box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.42), 0 0 24px rgba(0, 212, 255, 0.12);
-    backdrop-filter: blur(18px);
-    overscroll-behavior: contain;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
   .preview-panel .panel-title {
-    margin: 0 0 6px;
-  }
-
-  .preview-panel .panel-title h2 {
-    font-size: 12px;
+    display: none;
   }
 
   .preview-panel .meter-card {
-    gap: 2px;
-    padding: 7px 9px;
+    padding: 8px 10px;
     margin-bottom: 0;
+    box-shadow: 0 -14px 32px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(14px);
   }
 
   .preview-panel .meter-card strong {
@@ -1221,26 +1227,9 @@ button:disabled {
     display: none;
   }
 
-  .preview-mobile-dropdown {
-    display: block;
-    margin-top: 6px;
-  }
-
-  .preview-mobile-dropdown summary {
-    cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    padding: 7px 9px;
-    color: rgba(244, 247, 251, 0.84);
-    background: rgba(255, 255, 255, 0.055);
-    font-size: 12px;
-    font-weight: 900;
-  }
-
+  .preview-mobile-dropdown,
   .preview-mobile-dropdown .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
-    margin-top: 7px;
+    display: none;
   }
 
   .preview-panel .stat-item {
@@ -1351,15 +1340,11 @@ button:disabled {
 
 @media (max-width: 420px) {
   .builder-shell {
-    padding-bottom: calc(300px + env(safe-area-inset-bottom));
+    padding-bottom: calc(172px + env(safe-area-inset-bottom));
   }
 
   .result-section {
-    padding-bottom: calc(300px + env(safe-area-inset-bottom));
-  }
-
-  .preview-panel {
-    max-height: min(36vh, 220px);
+    padding-bottom: calc(172px + env(safe-area-inset-bottom));
   }
 
   .preview-panel .stat-grid {

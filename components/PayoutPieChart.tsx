@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { PayoutTier } from "@/lib/calculator";
 
 interface Props {
@@ -8,11 +9,16 @@ interface Props {
   stLabel: string;
 }
 
-const COLORS = ["#0718f4", "#ff9800", "#e000b8", "#ff1515", "#ffc20a", "#6d28d9"];
 const ENTRY_COLORS = {
-  normal: "#0718f4",
-  entry: "#ffc20a",
+  normal: "#0095e8",
+  entry: "#ffd400",
   other: "#ff9800",
+};
+const RUSH_COLORS = {
+  blue: "#0095e8",
+  yellow: "#ffd400",
+  green: "#18c56e",
+  red: "#f00035",
 };
 
 function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
@@ -41,7 +47,31 @@ function formatPayout(tier: PayoutTier) {
   return `約${tier.payout.toLocaleString()}個`;
 }
 
+function pickRushColors(tiers: PayoutTier[], rainbowFill: string): string[] {
+  if (tiers.length === 1) {
+    return tiers[0].payout === 0 ? [RUSH_COLORS.blue] : [rainbowFill];
+  }
+
+  const paidTiers = tiers.filter((tier) => tier.payout > 0);
+  const paidColors = paidTiers.length === 1
+    ? [RUSH_COLORS.red]
+    : paidTiers.length === 2
+      ? [RUSH_COLORS.yellow, RUSH_COLORS.red]
+      : paidTiers.length === 3
+        ? [RUSH_COLORS.yellow, RUSH_COLORS.red, rainbowFill]
+        : [RUSH_COLORS.yellow, RUSH_COLORS.green, RUSH_COLORS.red, rainbowFill];
+
+  let paidIndex = 0;
+  return tiers.map((tier) => {
+    if (tier.payout === 0) return RUSH_COLORS.blue;
+    const color = paidColors[Math.min(paidIndex, paidColors.length - 1)];
+    paidIndex += 1;
+    return color;
+  });
+}
+
 export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
+  const rainbowId = useId().replace(/:/g, "");
   const isEntryChart = title.includes("ヘソ") || title.includes("通常時");
   const normalized = tiers
     .filter((tier) => tier.rate > 0)
@@ -49,16 +79,19 @@ export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
       if (isEntryChart) {
         const score = (tier: PayoutTier) => {
           if (tier.label.includes("通常")) return 0;
-          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 1;
-          return 2;
+          if (tier.label.includes("時短")) return 1;
+          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 2;
+          return 3;
         };
         return score(a) - score(b);
       }
       return a.payout - b.payout || a.rate - b.rate;
     });
+  const rushColors = pickRushColors(normalized, `url(#${rainbowId})`);
   const colorForTier = (tier: PayoutTier, index: number) => {
-    if (!isEntryChart) return COLORS[index % COLORS.length];
+    if (!isEntryChart) return rushColors[index] ?? RUSH_COLORS.red;
     if (tier.label.includes("通常")) return ENTRY_COLORS.normal;
+    if (tier.label.includes("時短")) return ENTRY_COLORS.other;
     if (tier.label.includes("RUSH") || tier.label.includes("LT")) return ENTRY_COLORS.entry;
     return ENTRY_COLORS.other;
   };
@@ -73,6 +106,16 @@ export default function PayoutPieChart({ title, tiers, stLabel }: Props) {
       <div className="payout-chart-title">{title}</div>
       <div className="payout-chart-inner">
         <svg viewBox="0 0 420 420" role="img" aria-label={`${title}の円グラフ`} className="payout-chart-svg">
+          <defs>
+            <linearGradient id={rainbowId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#ff004c" />
+              <stop offset="0.24" stopColor="#ff8a00" />
+              <stop offset="0.42" stopColor="#ffd400" />
+              <stop offset="0.62" stopColor="#18c56e" />
+              <stop offset="0.82" stopColor="#0095e8" />
+              <stop offset="1" stopColor="#a855f7" />
+            </linearGradient>
+          </defs>
           <circle cx="210" cy="210" r="156" fill="#dcecf7" />
           {slices.map(({ tier, start, end, color }) => (
             tier.rate >= 99.9 ? (

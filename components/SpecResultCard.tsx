@@ -124,12 +124,12 @@ export default function SpecResultCard({ input, result }: Props) {
 
         <div className="pie-chart-stack">
           <PayoutPieChart
-            title="ヘソ・割合"
+            title="通常時"
             tiers={result.entryChartTiers}
             stLabel="初当たり"
           />
           <PayoutPieChart
-            title={isMultiStageRush(result.rushMode) ? "下位RUSH・割合" : "電チュー・割合"}
+            title={isMultiStageRush(result.rushMode) ? "下位RUSH・割合" : "大当たり中"}
             tiers={result.payoutTiers}
             stLabel={isMultiStageRush(result.rushMode) ? lowerRushStLabel : `ST${result.regulation.supportsLt ? result.ltStCount : result.stCount}回転`}
           />

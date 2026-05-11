@@ -410,10 +410,10 @@ export function calculateSpec(input: SpecInput): SpecResult {
   const ok = warnings.length === 0;
   const entryChartTiers: PayoutTier[] = [
     {
-      id: "entry-rush",
-      label: regulation.supportsLt && rushMode === "directLt" ? "LT突入" : "RUSH突入",
+      id: "entry-normal",
+      label: "通常",
       payout: input.initialPayout,
-      rate: round1(input.rushEntryRate),
+      rate: round1(Math.max(0, (1 - directRushEntryRate - timeShortEntryRate) * 100)),
       bonusCount: 1,
     },
     {
@@ -424,10 +424,10 @@ export function calculateSpec(input: SpecInput): SpecResult {
       bonusCount: 1,
     },
     {
-      id: "entry-normal",
-      label: "通常",
+      id: "entry-rush",
+      label: regulation.supportsLt && rushMode === "directLt" ? "LT突入" : "RUSH突入",
       payout: input.initialPayout,
-      rate: round1(Math.max(0, (1 - directRushEntryRate - timeShortEntryRate) * 100)),
+      rate: round1(input.rushEntryRate),
       bonusCount: 1,
     },
   ].filter((tier) => tier.rate > 0);

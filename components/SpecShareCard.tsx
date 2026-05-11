@@ -160,8 +160,9 @@ function sanitizeTiers(tiers: PayoutTier[], variant: "entry" | "rush" = "rush"):
       if (variant === "entry") {
         const score = (tier: PayoutTier) => {
           if (tier.label.includes("通常")) return 0;
-          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 1;
-          return 2;
+          if (tier.label.includes("時短")) return 1;
+          if (tier.label.includes("RUSH") || tier.label.includes("LT")) return 2;
+          return 3;
         };
         return score(a) - score(b);
       }
@@ -227,7 +228,7 @@ function pickRushColors(tiers: PayoutTier[]): string[] {
 function pickEntryColors(tiers: PayoutTier[]): string[] {
   return tiers.map((tier, index) => {
     if (tier.label.includes("通常")) return ENTRY_COLORS[0];
-    if (tier.label.includes("時短")) return RUSH_COLORS.yellow;
+    if (tier.label.includes("時短")) return RUSH_COLORS.orange;
     if (tier.label.includes("RUSH") || tier.label.includes("LT")) return ENTRY_COLORS[1];
     if (tiers.length <= 1) return ENTRY_COLORS[1];
     if (index === 0) return ENTRY_COLORS[0];
@@ -262,15 +263,17 @@ function pieChartSvg(params: {
     const labelPoint = params.variant === "entry"
       ? { x: entryFixedX, y: entryFixedY }
       : polarToCartesian(params.x, params.y, labelRadius, mid);
-    const rate = escapeXml(`${formatPercent(tier.rate)}`);
+    const rate = escapeXml(`約${formatPercent(tier.rate)}`);
     const payout = escapeXml(payoutText(tier));
+    const label = escapeXml(clipText(tier.label, params.compact ? 9 : 11));
     const fill = colors[index] ?? RUSH_COLORS.red;
 
     if (tier.rate >= 99.9) {
       return `
         <circle cx="${params.x}" cy="${params.y}" r="${params.r}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
-        <text x="${params.x}" y="${params.y - 14}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
-        <text x="${params.x}" y="${params.y + 32}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>
+        <text x="${params.x}" y="${params.y - 46}" text-anchor="middle" class="${params.compact ? "pieLabelSmall" : "pieLabel"}">${label}</text>
+        <text x="${params.x}" y="${params.y - 12}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
+        <text x="${params.x}" y="${params.y + 38}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>
       `;
     }
 
@@ -278,8 +281,9 @@ function pieChartSvg(params: {
       <path d="${describeArc(params.x, params.y, params.r, start, end)}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
       ${
         angle >= 22
-          ? `<text x="${labelPoint.x}" y="${labelPoint.y - 12}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
-             <text x="${labelPoint.x}" y="${labelPoint.y + 28}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
+          ? `<text x="${labelPoint.x}" y="${labelPoint.y - 36}" text-anchor="middle" class="${params.compact ? "pieLabelSmall" : "pieLabel"}">${label}</text>
+             <text x="${labelPoint.x}" y="${labelPoint.y - 8}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
+             <text x="${labelPoint.x}" y="${labelPoint.y + 34}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
           : ""
       }
     `;
@@ -310,9 +314,9 @@ function pieChartSvg(params: {
 
 function majorSpecRow(label: string, value: string, x: number, y: number, width: number, height: number, accent: string, subValue = "") {
   const labelWidth = 250;
-  const fontSize = subValue ? 40 : value.length >= 8 ? 52 : 62;
-  const valueY = subValue ? y + 39 : y + height / 2 + 20;
-  const subY = y + height - 14;
+  const fontSize = 54;
+  const valueY = subValue ? y + 43 : y + height / 2 + 19;
+  const subY = y + height - 10;
   return `
     <g>
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="rgba(255,246,210,0.9)" stroke="${accent}" stroke-width="3"/>
@@ -347,7 +351,7 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
     : result.actualRushContinuationRate;
   const showLt = result.regulation.supportsLt;
   const stCount = showLt && result.rushMode === "directLt" ? result.ltStCount : result.stCount;
-  const lowerTitle = isMultiStageRush(result.rushMode) ? "下位RUSH" : "電チュー";
+  const lowerTitle = isMultiStageRush(result.rushMode) ? "下位RUSH" : "大当たり中";
   const upperTitle = showLt ? "上位/LT" : "上位RUSH";
 
   const charts = result.rushMode === "threeStage"
@@ -364,7 +368,7 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
     `
       : `
       ${pieChartSvg({ title: "通常時", tiers: result.entryChartTiers, x: 300, y: 860, r: 136, variant: "entry" })}
-      ${pieChartSvg({ title: "RUSH中", tiers: result.payoutTiers, x: 780, y: 860, r: 136, variant: "rush" })}
+      ${pieChartSvg({ title: "大当たり中", tiers: result.payoutTiers, x: 780, y: 860, r: 136, variant: "rush" })}
     `;
   const machineVisual = machineImageDataUrl
     ? `
@@ -421,14 +425,16 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
       .subtitle { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; opacity: .9; }
       .statLabel { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 4; paint-order: stroke; }
       .tableLabel { font: 900 28px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #05070d; stroke-width: 5; paint-order: stroke; }
-      .tableValue { font-family: Georgia, "Times New Roman", serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #5b1010; stroke: rgba(255,255,255,0.45); stroke-width: 2; paint-order: stroke; }
-      .tableSub { font: 900 19px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #7b1313; }
+      .tableValue { font-family: "Arial Black", Impact, "Hiragino Sans", "Yu Gothic", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #5b1010; stroke: rgba(255,255,255,0.62); stroke-width: 2; paint-order: stroke; }
+      .tableSub { font: 900 17px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #7b1313; }
       .statValue { font-family: "Arial Black", Impact, "Arial", sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; fill: #ffffff; stroke: #161000; stroke-width: 5; paint-order: stroke; filter: url(#textGlow); }
       .chartTitle { font: 900 27px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
-      .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
-      .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
-      .piePayout { font: 900 22px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 5; paint-order: stroke; }
-      .piePayoutSmall { font: 900 17px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 4; paint-order: stroke; }
+      .pieLabel { font: 900 28px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 6; paint-order: stroke; }
+      .pieLabelSmall { font: 900 21px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 5; paint-order: stroke; }
+      .pieRate { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 42px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 8; paint-order: stroke; }
+      .pieRateSmall { font-family: "Arial Black", Impact, "Arial", sans-serif; font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; fill: #ffffff; stroke: #07111d; stroke-width: 7; paint-order: stroke; }
+      .piePayout { font: 900 21px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 5; paint-order: stroke; }
+      .piePayoutSmall { font: 900 15px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 4; paint-order: stroke; }
       .legendText { font: 900 15px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #07111d; stroke-width: 3; paint-order: stroke; }
       .note { font: 800 18px "Hiragino Sans", "Yu Gothic", sans-serif; fill: rgba(255,255,255,.9); }
       .brand { font: 900 36px "Hiragino Sans", "Yu Gothic", sans-serif; fill: #ffffff; stroke: #061018; stroke-width: 5; paint-order: stroke; }
@@ -454,7 +460,7 @@ function buildSpecShareSvg(input: SpecInput, result: SpecResult, machineImageDat
   <g filter="url(#shadow)">
     <rect x="82" y="166" width="625" height="258" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
     ${majorSpecRow("大当り確率", `1/${input.hitProbability}`, 102, 190, 585, 62, theme.gold)}
-    ${majorSpecRow("RUSH突入率", `${input.rushEntryRate}%`, 102, 263, 585, 76, theme.hot, `実質RUSH突入率 約${effectiveEntry}%`)}
+    ${majorSpecRow("RUSH突入率", `${input.rushEntryRate}%`, 102, 263, 585, 82, theme.hot, `実質RUSH突入率 約${effectiveEntry}%`)}
     ${majorSpecRow("RUSH継続率", `${rushContinuation}%`, 102, 350, 585, 62, theme.gold)}
     <rect x="82" y="452" width="625" height="118" rx="12" fill="rgba(8,7,18,0.72)" stroke="url(#goldLine)" stroke-width="4"/>
     ${miniStatBox("RUSH中確率", `1/${result.rushProbability}`, 116, 468, 255, 84, theme.sub)}
