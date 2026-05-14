@@ -24,7 +24,9 @@ import {
   YAxis,
 } from "recharts";
 
-const SIMULATION_SPINS = 2000;
+const DEFAULT_SIMULATION_SPINS = 2000;
+const DEFAULT_SPINS_PER_1000YEN = 17;
+const DEFAULT_EXCHANGE_RATE = 4;
 
 function withDefaults(value: Partial<SpecInput>): SpecInput {
   return {
@@ -108,6 +110,13 @@ function SimulatePage() {
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
+  const [simulationSpins, setSimulationSpins] = useState(String(DEFAULT_SIMULATION_SPINS));
+  const [spinsPer1000Yen, setSpinsPer1000Yen] = useState(String(DEFAULT_SPINS_PER_1000YEN));
+  const [exchangeRate, setExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
+
+  const simulationSpinsNum = clampNumber(parseInt(simulationSpins, 10), 100, 100000, DEFAULT_SIMULATION_SPINS);
+  const spinsPer1000YenNum = clampNumber(parseFloat(spinsPer1000Yen), 1, 40, DEFAULT_SPINS_PER_1000YEN);
+  const exchangeRateNum = clampNumber(parseFloat(exchangeRate), 1, 4, DEFAULT_EXCHANGE_RATE);
 
   function handleSimulate() {
     if (!spec.check.ok) return;
@@ -116,12 +125,16 @@ function SimulatePage() {
     setSimResult(null);
 
     setTimeout(() => {
-      const result = runSimulation(input, spec, SIMULATION_SPINS, (current) => {
+      const result = runSimulation(input, spec, simulationSpinsNum, (current) => {
         setProgress(current);
+      }, {
+        spinsPer1000Yen: spinsPer1000YenNum,
+        exchangeYenPerBall: exchangeRateNum,
+        ballPriceYen: 4,
       });
       setSimResult(result);
       setRunning(false);
-      setProgress(SIMULATION_SPINS);
+      setProgress(simulationSpinsNum);
     }, 50);
   }
 
@@ -143,7 +156,7 @@ function SimulatePage() {
         <button onClick={() => router.back()} className="back-button">戻る</button>
         <span className="brand-mark">P</span>
         <div>
-          <span className="brand-name">PachiSpec</span>
+          <span className="brand-name">オリパチ</span>
           <span className="brand-sub">シミュレーター</span>
         </div>
       </header>
@@ -180,7 +193,17 @@ function SimulatePage() {
           </div>
         </section>
 
-        {border && <BorderAnalyzer key={`${input.name}-${border.borderSpins}`} hitProbability={input.hitProbability} border={border} />}
+        {border && (
+          <BorderAnalyzer
+            key={`${input.name}-${border.borderSpins}`}
+            hitProbability={input.hitProbability}
+            border={border}
+            userSpins={spinsPer1000Yen}
+            onUserSpinsChange={setSpinsPer1000Yen}
+            exchange={exchangeRate}
+            onExchangeChange={setExchangeRate}
+          />
+        )}
 
         {!spec.check.ok && (
           <div className="warning-banner">
@@ -189,22 +212,63 @@ function SimulatePage() {
           </div>
         )}
 
+        <section className="result-shell">
+          <div className="result-body">
+            <h3>シミュレーション条件</h3>
+            <div className="sim-settings-grid">
+              <label>
+                <span>試行回転数</span>
+                <input
+                  type="number"
+                  value={simulationSpins}
+                  min={100}
+                  max={100000}
+                  step={100}
+                  onChange={(event) => setSimulationSpins(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>回転率（回/1,000円）</span>
+                <input
+                  type="number"
+                  value={spinsPer1000Yen}
+                  min={1}
+                  max={40}
+                  step={0.1}
+                  onChange={(event) => setSpinsPer1000Yen(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>交換率（円/玉）</span>
+                <input
+                  type="number"
+                  value={exchangeRate}
+                  min={1}
+                  max={4}
+                  step={0.01}
+                  onChange={(event) => setExchangeRate(event.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+
         <button
           onClick={handleSimulate}
           disabled={running || !spec.check.ok}
           className="primary-action wide"
         >
-          {running ? "シミュレート中..." : `${SIMULATION_SPINS.toLocaleString()}回転シミュレート開始`}
+          {running ? "シミュレート中..." : `${simulationSpinsNum.toLocaleString()}回転シミュレート開始`}
         </button>
 
         {(running || progress > 0) && (
           <div className="progress-block">
             <div className="progress-label">
               <span>進捗</span>
-              <span>{progress.toLocaleString()} / {SIMULATION_SPINS.toLocaleString()}回転</span>
+              <span>{progress.toLocaleString()} / {simulationSpinsNum.toLocaleString()}回転</span>
             </div>
             <div className="progress-track">
-              <div style={{ width: `${(progress / SIMULATION_SPINS) * 100}%` }} />
+              <div style={{ width: `${(progress / simulationSpinsNum) * 100}%` }} />
             </div>
           </div>
         )}
@@ -218,7 +282,8 @@ function SimulatePage() {
                   <ResultStat label="通常時総回転数" value={`${simResult.totalSpins.toLocaleString()}回転`} />
                   <ResultStat label="総初当たり回数" value={`${simResult.totalInitialHits.toLocaleString()}回`} />
                   <ResultStat label="RUSH突入回数" value={`${simResult.totalRushEntries.toLocaleString()}回`} />
-                  <ResultStat label="平均回収/初当たり" value={`${simResult.avgPayoutPerHit.toLocaleString()}円`} highlight />
+                  <ResultStat label="平均出玉/初当たり" value={`${simResult.avgPayoutBallsPerHit.toLocaleString()}発`} highlight color="cyan" />
+                  <ResultStat label="平均回収額/初当たり" value={`${simResult.avgPayoutPerHit.toLocaleString()}円`} highlight />
                   <ResultStat label="最大連チャン" value={`${simResult.maxChain}連`} highlight color="gold" />
                   <ResultStat label="最大ハマり" value={`${simResult.maxHamari.toLocaleString()}回転`} />
                   <ResultStat label="遊タイム突入" value={`${simResult.yutimeEntries.toLocaleString()}回`} />
@@ -300,6 +365,11 @@ function ResultStat({ label, value, highlight, color }: {
 
 function isMultiStageRush(rushMode: SpecInput["rushMode"]) {
   return rushMode === "twoStage" || rushMode === "threeStage";
+}
+
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 export default function SimulatePageWrapper() {

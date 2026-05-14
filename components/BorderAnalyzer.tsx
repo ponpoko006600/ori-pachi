@@ -6,12 +6,42 @@ import { BorderResult, calcExpectedValue } from "@/lib/calculator";
 interface Props {
   hitProbability: number;
   border: BorderResult;
+  userSpins?: string;
+  onUserSpinsChange?: (value: string) => void;
+  exchange?: string;
+  onExchangeChange?: (value: string) => void;
 }
 
-export default function BorderAnalyzer({ hitProbability, border }: Props) {
-  const [userSpins, setUserSpins] = useState(String(border.borderSpins));
+export default function BorderAnalyzer({
+  hitProbability,
+  border,
+  userSpins: controlledUserSpins,
+  onUserSpinsChange,
+  exchange: controlledExchange,
+  onExchangeChange,
+}: Props) {
+  const [localUserSpins, setLocalUserSpins] = useState(String(border.borderSpins));
   const [investment, setInvestment] = useState("10000");
-  const [exchange, setExchange] = useState("4");
+  const [localExchange, setLocalExchange] = useState("4");
+
+  const userSpins = controlledUserSpins ?? localUserSpins;
+  const exchange = controlledExchange ?? localExchange;
+
+  function updateUserSpins(value: string) {
+    if (onUserSpinsChange) {
+      onUserSpinsChange(value);
+      return;
+    }
+    setLocalUserSpins(value);
+  }
+
+  function updateExchange(value: string) {
+    if (onExchangeChange) {
+      onExchangeChange(value);
+      return;
+    }
+    setLocalExchange(value);
+  }
 
   const userSpinsNum = parseFloat(userSpins);
   const investmentNum = parseInt(investment);
@@ -91,7 +121,7 @@ export default function BorderAnalyzer({ hitProbability, border }: Props) {
               <input
                 type="number"
                 value={userSpins}
-                onChange={(e) => setUserSpins(e.target.value)}
+                onChange={(e) => updateUserSpins(e.target.value)}
                 placeholder="例: 21.0"
                 step="0.1"
                 min="1"
@@ -120,7 +150,7 @@ export default function BorderAnalyzer({ hitProbability, border }: Props) {
               {["3.57", "4"].map((rate) => (
                 <button
                   key={rate}
-                  onClick={() => setExchange(rate)}
+                  onClick={() => updateExchange(rate)}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                   style={exchange === rate
                     ? { background: "rgba(255,215,0,0.3)", border: "1px solid rgba(255,215,0,0.5)", color: "#ffd700" }

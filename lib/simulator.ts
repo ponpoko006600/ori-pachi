@@ -10,7 +10,9 @@ export interface SimulationResult {
   totalInitialHits: number;
   totalRushEntries: number;
   totalPayout: number;
+  totalPayoutBalls: number;
   avgPayoutPerHit: number;
+  avgPayoutBallsPerHit: number;
   maxChain: number;
   maxHamari: number;
   yutimeEntries: number;
@@ -21,8 +23,15 @@ export interface SimulationResult {
   machineRatio: number;
 }
 
-const SPINS_PER_1000YEN = 17;
-const BALL_PRICE = 4;
+export interface SimulationOptions {
+  spinsPer1000Yen?: number;
+  exchangeYenPerBall?: number;
+  ballPriceYen?: number;
+}
+
+const DEFAULT_SPINS_PER_1000YEN = 17;
+const DEFAULT_BALL_PRICE = 4;
+const DEFAULT_EXCHANGE_YEN_PER_BALL = 4;
 
 function drawGeometric(probabilityDenominator: number): number {
   const hitRate = 1 / Math.max(probabilityDenominator, 1);
@@ -105,8 +114,12 @@ export function runSimulation(
   input: SpecInput,
   spec: SpecResult,
   totalSpins = 2000,
-  onProgress?: (current: number) => void
+  onProgress?: (current: number) => void,
+  options: SimulationOptions = {}
 ): SimulationResult {
+  const spinsPer1000Yen = sanitizePositive(options.spinsPer1000Yen, DEFAULT_SPINS_PER_1000YEN);
+  const ballPriceYen = sanitizePositive(options.ballPriceYen, DEFAULT_BALL_PRICE);
+  const exchangeYenPerBall = sanitizePositive(options.exchangeYenPerBall, DEFAULT_EXCHANGE_YEN_PER_BALL);
   let currentSpin = 0;
   let totalInitialHits = 0;
   let totalRushEntries = 0;
@@ -126,7 +139,7 @@ export function runSimulation(
     const remainingSpins = totalSpins - currentSpin;
 
     if (normal.spins > remainingSpins) {
-      const costYen = (remainingSpins / SPINS_PER_1000YEN) * 1000;
+      const costYen = (remainingSpins / spinsPer1000Yen) * 1000;
       totalInvestmentYen += costYen;
       cumulativeBalance -= costYen;
       currentSpin = totalSpins;
@@ -134,7 +147,7 @@ export function runSimulation(
       break;
     }
 
-    const costYen = (normal.spins / SPINS_PER_1000YEN) * 1000;
+    const costYen = (normal.spins / spinsPer1000Yen) * 1000;
     totalInvestmentYen += costYen;
     cumulativeBalance -= costYen;
     currentSpin += normal.spins;
@@ -149,7 +162,7 @@ export function runSimulation(
     chainDistribution[rush.chainCount] = (chainDistribution[rush.chainCount] || 0) + 1;
 
     const payoutBalls = input.initialPayout + rush.payoutBalls;
-    const payoutYen = payoutBalls * BALL_PRICE;
+    const payoutYen = payoutBalls * exchangeYenPerBall;
     totalPayoutBalls += payoutBalls;
     totalPayoutYen += payoutYen;
     cumulativeBalance += payoutYen;
@@ -158,7 +171,7 @@ export function runSimulation(
     if (onProgress) onProgress(currentSpin);
   }
 
-  const investedBalls = totalInvestmentYen / BALL_PRICE;
+  const investedBalls = totalInvestmentYen / ballPriceYen;
   const machineRatio = (totalPayoutBalls / Math.max(investedBalls, 1)) * 100;
 
   return {
@@ -166,7 +179,9 @@ export function runSimulation(
     totalInitialHits,
     totalRushEntries,
     totalPayout: Math.round(totalPayoutYen),
+    totalPayoutBalls,
     avgPayoutPerHit: totalInitialHits > 0 ? Math.round(totalPayoutYen / totalInitialHits) : 0,
+    avgPayoutBallsPerHit: totalInitialHits > 0 ? Math.round(totalPayoutBalls / totalInitialHits) : 0,
     maxChain,
     maxHamari,
     yutimeEntries,
@@ -176,4 +191,8 @@ export function runSimulation(
     finalBalance: Math.round(cumulativeBalance),
     machineRatio: Math.round(machineRatio * 10) / 10,
   };
+}
+
+function sanitizePositive(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
 }

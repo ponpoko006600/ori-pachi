@@ -95,7 +95,7 @@ export default function Home() {
     setInput((current) => ({
       ...current,
       regulationType,
-      rushMode: !nextRegulation.supportsLt && current.rushMode === "directLt" ? "standard" : current.rushMode,
+      rushMode: normalizeRushModeForRegulation(current.rushMode, nextRegulation.supportsLt),
       rushContinuationRate: Math.min(current.rushContinuationRate, nextRegulation.maxContinuationRate),
       ltContinuationRate: nextRegulation.supportsLt ? current.ltContinuationRate : Math.min(current.rushContinuationRate, nextRegulation.maxContinuationRate),
       upperRushContinuationRate: Math.min(current.upperRushContinuationRate, nextRegulation.maxContinuationRate),
@@ -196,6 +196,10 @@ export default function Home() {
     setCreatedInput(null);
   }
 
+  function scrollToSection(sectionId: string) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function closestHitProbability(value: number): HitProbability {
     return HIT_PROBS.reduce((closest, current) => (
       Math.abs(current - value) < Math.abs(closest - value) ? current : closest
@@ -206,10 +210,25 @@ export default function Home() {
     <main className="min-h-screen app-bg">
       <SiteHeader />
 
-      <section className="builder-shell">
+      <section className={createdInput ? "builder-shell result-open" : "builder-shell"}>
         <div className="builder-intro">
           <h1>スペック作成</h1>
           <p>規制タイプを選び、スライダーで出玉性能を調整できます。</p>
+        </div>
+
+        <div className="quick-start-panel" aria-label="初めての方向けの操作導線">
+          <button onClick={() => scrollToSection("preset-section")}>
+            <strong>実機から改造</strong>
+            <span>既存スペックを選んで少しずつ調整</span>
+          </button>
+          <button onClick={() => scrollToSection("basic-section")}>
+            <strong>かんたん作成</strong>
+            <span>初当たり・突入率・継続率から作る</span>
+          </button>
+          <button onClick={() => scrollToSection("detail-section")}>
+            <strong>こだわり設定</strong>
+            <span>RUSH構造や出玉振り分けまで調整</span>
+          </button>
         </div>
 
         {!result.check.ok && (
@@ -246,6 +265,7 @@ export default function Home() {
               />
             </div>
 
+            <div id="preset-section" className="scroll-anchor" />
             <PanelTitle label="実機プリセット" />
             <div className="preset-machine-grid">
               {MACHINE_PRESETS.map((preset) => (
@@ -266,6 +286,7 @@ export default function Home() {
               </div>
             )}
 
+            <div id="basic-section" className="scroll-anchor" />
             <PanelTitle label="基本パラメータ" />
             <div className="field-stack">
               <label className="field-label">機種タイプ</label>
@@ -349,8 +370,12 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+              {input.rushMode === "threeStage" && (
+                <p className="compact-guide">初当たり後にRUSHへ突入 → 中位RUSH抽選 → 上位/LT抽選の順で計算します。</p>
+              )}
             </div>
 
+            <div id="detail-section" className="scroll-anchor" />
             <div className="field-stack">
               <label className="field-label">継続率の作り方</label>
               <div className="segmented">
@@ -605,7 +630,7 @@ export default function Home() {
             </div>
             <p className="feature-note">遊タイム機能は今後実装予定です。現在は「なし」固定で計算します。</p>
 
-            <div className="create-actions builder-bottom-actions">
+            <div className={createdInput ? "create-actions builder-bottom-actions result-open" : "create-actions builder-bottom-actions"}>
               <div className={result.check.ok ? "mobile-bottom-status ok" : "mobile-bottom-status warn"}>
                 <strong>{result.check.ok ? "規制内で作成できます" : "調整が必要です"}</strong>
               </div>
@@ -676,6 +701,12 @@ function getRushModeOptions(regulationType: RegulationType): Array<{ value: Rush
 
 function isMultiStageRushMode(rushMode: RushMode) {
   return rushMode === "twoStage" || rushMode === "threeStage";
+}
+
+function normalizeRushModeForRegulation(rushMode: RushMode, supportsLt: boolean): RushMode {
+  if (supportsLt && rushMode === "standard") return "directLt";
+  if (!supportsLt && rushMode === "directLt") return "standard";
+  return rushMode;
 }
 
 function SliderControl({
