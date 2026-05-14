@@ -95,19 +95,11 @@ export default function BorderAnalyzer({
         </div>
 
         <p className="text-xs text-white/30">
-          {border.sourceLabel ? `${border.sourceLabel}掲載値を基準に表示` : "ボーダー以上回れば理論上は期待値プラス（4円等価交換基準）"}
+          {border.sourceLabel ? "登録済みの実機参考値を基準に表示" : "ボーダー以上回れば理論上は期待値プラス（4円等価交換基準）"}
         </p>
         {border.conditionNote && (
           <p className="text-xs text-white/30">
             {border.conditionNote}
-            {border.sourceUrl && (
-              <>
-                {" "}
-                <a href={border.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-link">
-                  参照元
-                </a>
-              </>
-            )}
           </p>
         )}
 

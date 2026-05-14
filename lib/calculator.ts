@@ -28,7 +28,7 @@ export interface TimeShortSettings {
 
 export interface SpecBenchmark {
   sourceLabel: string;
-  sourceUrl: string;
+  sourceUrl?: string;
   avgTotalPayoutBalls: number;
   borderSpins4Yen: number;
   conditionNote: string;

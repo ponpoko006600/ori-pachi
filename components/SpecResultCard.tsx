@@ -108,7 +108,7 @@ export default function SpecResultCard({ input, result }: Props) {
           </div>
           {input.benchmark && (
             <p className="benchmark-note">
-              実機プリセットは{input.benchmark.sourceLabel}掲載の「初当り1回あたりの期待出玉」とボーダーを基準に表示しています。
+              実機プリセットは、登録済みの参考値を基準に「初当たり1回あたりの期待出玉」とボーダーを表示しています。
             </p>
           )}
         </section>

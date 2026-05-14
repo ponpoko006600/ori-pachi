@@ -3,7 +3,6 @@ import { SpecInput } from "./calculator";
 export interface MachinePreset {
   id: string;
   label: string;
-  sourceUrl: string;
   input: SpecInput;
 }
 
@@ -21,7 +20,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "eva15",
     label: "Pエヴァ15",
-    sourceUrl: "https://p-town.dmm.com/machines/4021",
     input: {
       name: "P新世紀エヴァンゲリオン15 未来への咆哮",
       machineType: "P",
@@ -48,8 +46,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4021",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 4498,
         borderSpins4Yen: 17.8,
         conditionNote: "電サポ中の出玉増減-10%、通常時2000回転（10時間）から算出。",
@@ -59,7 +56,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "tokyo-ghoul",
     label: "e東京喰種W",
-    sourceUrl: "https://p-town.dmm.com/machines/4782",
     input: {
       name: "e東京喰種W",
       machineType: "e",
@@ -87,8 +83,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4782",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 2998,
         borderSpins4Yen: 16.7,
         conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
@@ -98,7 +93,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "eva17",
     label: "eエヴァ17",
-    sourceUrl: "https://p-town.dmm.com/machines/4894",
     input: {
       name: "e新世紀エヴァンゲリオン17 はじまりの記憶R",
       machineType: "e",
@@ -125,8 +119,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4894",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 5987,
         borderSpins4Yen: 16.7,
         conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
@@ -136,7 +129,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "rezero2",
     label: "eリゼロ2",
-    sourceUrl: "https://p-town.dmm.com/machines/4457",
     input: {
       name: "e Re:ゼロから始める異世界生活 season2M13",
       machineType: "e",
@@ -164,8 +156,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4457",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 5282,
         borderSpins4Yen: 16.6,
         conditionNote: "電サポ中の出玉増減-5%、通常時2000回転（10時間）から算出。",
@@ -175,7 +166,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "karakuri2",
     label: "eからくり2",
-    sourceUrl: "https://p-town.dmm.com/machines/4649",
     input: {
       name: "eフィーバーからくりサーカス2R",
       machineType: "e",
@@ -206,8 +196,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4649",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 5552,
         borderSpins4Yen: 18.1,
         conditionNote: "電サポ中の出玉増減なし、通常時2000回転（10時間）から算出。",
@@ -217,7 +206,6 @@ export const MACHINE_PRESETS: MachinePreset[] = [
   {
     id: "gensan2",
     label: "P源さん超韋駄天2",
-    sourceUrl: "https://p-town.dmm.com/machines/4532",
     input: {
       name: "P大工の源さん超韋駄天2HLB",
       machineType: "P",
@@ -245,8 +233,7 @@ export const MACHINE_PRESETS: MachinePreset[] = [
       ],
       yutime: yutimeOff,
       benchmark: {
-        sourceLabel: "DMMぱちタウン",
-        sourceUrl: "https://p-town.dmm.com/machines/4532",
+        sourceLabel: "実機参考値",
         avgTotalPayoutBalls: 1823,
         borderSpins4Yen: 17.8,
         conditionNote: "電サポ中の出玉増減なし、通常時2000回転（10時間）から算出。",
