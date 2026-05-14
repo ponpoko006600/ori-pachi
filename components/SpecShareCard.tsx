@@ -251,7 +251,7 @@ function pieChartSvg(params: {
   const total = Math.max(1, tiers.reduce((sum, tier) => sum + tier.rate, 0));
   let currentAngle = 0;
 
-  const slices = tiers.map((tier, index) => {
+  const sliceParts = tiers.map((tier, index) => {
     const angle = (tier.rate / total) * 360;
     const start = currentAngle;
     const end = currentAngle + angle;
@@ -269,25 +269,33 @@ function pieChartSvg(params: {
     const fill = colors[index] ?? RUSH_COLORS.red;
 
     if (tier.rate >= 99.9) {
-      return `
+      return {
+        shape: `
         <circle cx="${params.x}" cy="${params.y}" r="${params.r}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
+      `,
+        label: `
         <text x="${params.x}" y="${params.y - 46}" text-anchor="middle" class="${params.compact ? "pieLabelSmall" : "pieLabel"}">${label}</text>
         <text x="${params.x}" y="${params.y - 12}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
         <text x="${params.x}" y="${params.y + 38}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>
-      `;
+      `,
+      };
     }
 
-    return `
+    return {
+      shape: `
       <path d="${describeArc(params.x, params.y, params.r, start, end)}" fill="${fill}" stroke="#ffffff" stroke-width="4"/>
-      ${
-        angle >= 22
-          ? `<text x="${labelPoint.x}" y="${labelPoint.y - 36}" text-anchor="middle" class="${params.compact ? "pieLabelSmall" : "pieLabel"}">${label}</text>
+      `,
+      label: angle >= 22
+        ? `
+             <text x="${labelPoint.x}" y="${labelPoint.y - 36}" text-anchor="middle" class="${params.compact ? "pieLabelSmall" : "pieLabel"}">${label}</text>
              <text x="${labelPoint.x}" y="${labelPoint.y - 8}" text-anchor="middle" class="${params.compact ? "piePayoutSmall" : "piePayout"}">${payout}</text>
-             <text x="${labelPoint.x}" y="${labelPoint.y + 34}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>`
-          : ""
-      }
-    `;
-  }).join("");
+             <text x="${labelPoint.x}" y="${labelPoint.y + 34}" text-anchor="middle" class="${params.compact ? "pieRateSmall" : "pieRate"}">${rate}</text>
+          `
+        : "",
+    };
+  });
+  const slices = sliceParts.map((part) => part.shape).join("");
+  const sliceLabels = sliceParts.map((part) => part.label).join("");
 
   const legend = tiers.map((tier, index) => {
     const legendX = params.x - params.r - 44;
@@ -307,6 +315,7 @@ function pieChartSvg(params: {
       <rect x="${params.x - params.r - 52}" y="${params.y - params.r - 56}" width="${params.r * 2 + 104}" height="48" rx="12" fill="rgba(240,0,53,0.88)" stroke="#ffffff" stroke-width="2"/>
       <text x="${params.x}" y="${params.y - params.r - 21}" text-anchor="middle" class="chartTitle">${escapeXml(params.title)}</text>
       ${slices}
+      ${sliceLabels}
       ${legend}
     </g>
   `;

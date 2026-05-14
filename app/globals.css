@@ -853,6 +853,13 @@ button:disabled {
   border-color: rgba(0, 212, 255, 0.68);
 }
 
+.sim-fixed-note {
+  margin: -6px 0 0;
+  color: rgba(244, 247, 251, 0.58);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .suggestion-box {
   display: grid;
   gap: 8px;

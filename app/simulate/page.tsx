@@ -24,7 +24,7 @@ import {
   YAxis,
 } from "recharts";
 
-const DEFAULT_SIMULATION_SPINS = 2000;
+const SIMULATION_SPINS = 2000;
 const DEFAULT_SPINS_PER_1000YEN = 17;
 const DEFAULT_EXCHANGE_RATE = 4;
 
@@ -110,11 +110,9 @@ function SimulatePage() {
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
-  const [simulationSpins, setSimulationSpins] = useState(String(DEFAULT_SIMULATION_SPINS));
   const [spinsPer1000Yen, setSpinsPer1000Yen] = useState(String(DEFAULT_SPINS_PER_1000YEN));
   const [exchangeRate, setExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
 
-  const simulationSpinsNum = clampNumber(parseInt(simulationSpins, 10), 100, 100000, DEFAULT_SIMULATION_SPINS);
   const spinsPer1000YenNum = clampNumber(parseFloat(spinsPer1000Yen), 1, 40, DEFAULT_SPINS_PER_1000YEN);
   const exchangeRateNum = clampNumber(parseFloat(exchangeRate), 1, 4, DEFAULT_EXCHANGE_RATE);
 
@@ -125,7 +123,7 @@ function SimulatePage() {
     setSimResult(null);
 
     setTimeout(() => {
-      const result = runSimulation(input, spec, simulationSpinsNum, (current) => {
+      const result = runSimulation(input, spec, SIMULATION_SPINS, (current) => {
         setProgress(current);
       }, {
         spinsPer1000Yen: spinsPer1000YenNum,
@@ -134,7 +132,7 @@ function SimulatePage() {
       });
       setSimResult(result);
       setRunning(false);
-      setProgress(simulationSpinsNum);
+      setProgress(SIMULATION_SPINS);
     }, 50);
   }
 
@@ -215,18 +213,8 @@ function SimulatePage() {
         <section className="result-shell">
           <div className="result-body">
             <h3>シミュレーション条件</h3>
+            <p className="sim-fixed-note">試行回転数は2,000回転固定です。回転率と交換率だけ調整できます。</p>
             <div className="sim-settings-grid">
-              <label>
-                <span>試行回転数</span>
-                <input
-                  type="number"
-                  value={simulationSpins}
-                  min={100}
-                  max={100000}
-                  step={100}
-                  onChange={(event) => setSimulationSpins(event.target.value)}
-                />
-              </label>
               <label>
                 <span>回転率（回/1,000円）</span>
                 <input
@@ -258,17 +246,17 @@ function SimulatePage() {
           disabled={running || !spec.check.ok}
           className="primary-action wide"
         >
-          {running ? "シミュレート中..." : `${simulationSpinsNum.toLocaleString()}回転シミュレート開始`}
+          {running ? "シミュレート中..." : `${SIMULATION_SPINS.toLocaleString()}回転シミュレート開始`}
         </button>
 
         {(running || progress > 0) && (
           <div className="progress-block">
             <div className="progress-label">
               <span>進捗</span>
-              <span>{progress.toLocaleString()} / {simulationSpinsNum.toLocaleString()}回転</span>
+              <span>{progress.toLocaleString()} / {SIMULATION_SPINS.toLocaleString()}回転</span>
             </div>
             <div className="progress-track">
-              <div style={{ width: `${(progress / simulationSpinsNum) * 100}%` }} />
+              <div style={{ width: `${(progress / SIMULATION_SPINS) * 100}%` }} />
             </div>
           </div>
         )}

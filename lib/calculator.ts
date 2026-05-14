@@ -368,18 +368,22 @@ export function calculateSpec(input: SpecInput): SpecResult {
   const timeShortHitPayout = timeShortEntryRate * input.initialPayout;
   const avgTotalPayout = input.initialPayout + timeShortHitPayout + lowerRushExpected + middleRushExpected + upperRushExpected + ltExpected + classicRushExpected;
   const displayedAvgTotalPayout = input.benchmark?.avgTotalPayoutBalls ?? avgTotalPayout;
-  const ltRatio = ltExpected / Math.max(input.initialPayout + lowerRushExpected + middleRushExpected + ltExpected, 1);
+  const ltRatio = ltExpected / Math.max(avgTotalPayout, 1);
   const suggestions: string[] = [];
 
+  if (regulation.supportsLt && avgTotalPayout > regulation.maxInitialPayout) {
+    warnings.push(`初当たり1回あたりの期待出玉が約${Math.round(avgTotalPayout).toLocaleString()}発で、${regulation.maxInitialPayout.toLocaleString()}発の上限を超えています。`);
+    causes.add("rushEntryRate");
+    causes.add("ltContinuationRate");
+    causes.add("payoutTiers");
+    if (input.initialPayout > 0) causes.add("initialPayout");
+  }
+
   if (regulation.supportsLt && regulation.maxLtRatio && ltRatio > regulation.maxLtRatio + 0.001) {
-    if (rushMode === "directLt") {
-      suggestions.push(`直LT系のため、LT比率${Math.round(ltRatio * 100)}%は参考値として表示しています。`);
-    } else {
-      warnings.push(`LT比率が約${Math.round(ltRatio * 100)}%で、${Math.round(regulation.maxLtRatio * 100)}%上限を超えています。突入率・LT継続率・LT出玉を下げてください。`);
-      causes.add(rushMode === "threeStage" ? "middleRushEntryRate" : rushMode === "twoStage" ? "upperRushEntryRate" : "rushEntryRate");
-      causes.add("ltContinuationRate");
-      causes.add("payoutTiers");
-    }
+    warnings.push(`LT比率が約${Math.round(ltRatio * 100)}%で、${Math.round(regulation.maxLtRatio * 100)}%上限を超えています。突入率・LT継続率・LT出玉を下げてください。`);
+    causes.add(rushMode === "threeStage" ? "middleRushEntryRate" : rushMode === "twoStage" ? "upperRushEntryRate" : "rushEntryRate");
+    causes.add("ltContinuationRate");
+    causes.add("payoutTiers");
   }
 
   const remainingLtPayout = regulation.maxLtTotalPayout ? regulation.maxLtTotalPayout - avgLtPayout : 0;
